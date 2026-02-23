@@ -98,7 +98,7 @@
 </head>
 <body>
 
-  
+
 <div class="sidebar">
 <!-- 上段 -->
 <div class="panel">
@@ -165,8 +165,14 @@ legend.onAdd = function() {
     <div class="row"><i style="background:${wbgtColor(20)}"></i>ほぼ安全（〜20.9）</div>
     <div class="row"><i style="background:#cccccc"></i>データなし</div>
     <hr style="border:none; border-top:1px solid #ddd; margin:8px 0;">
-    <div class="row"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#000;margin-right:10px;"></span>病院（H=26）</div>
-  `;
+
+    <div class="row">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input id="toggle-hospitals" type="checkbox" checked>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3388ff;"></span>
+        病院
+      </label>
+    </div>  `;
   return div;
 };
 legend.addTo(map);
@@ -271,6 +277,20 @@ fetch("kyoto_municipalities.geojson")
 
 /** ---------- Hospitals (H=26 only) ---------- */
 const hospitalLayer = L.layerGroup().addTo(map);
+
+// 凡例のチェックボックスで病院レイヤーON/OFF
+setTimeout(() => {
+  const cb = document.getElementById('toggle-hospitals');
+  if (!cb) return;
+
+  cb.addEventListener('change', () => {
+    if (cb.checked) {
+      hospitalLayer.addTo(map);
+    } else {
+      map.removeLayer(hospitalLayer);
+    }
+  });
+}, 0);
 
 fetch("HospitalPlaceData.xlsx")
   .then(res => {
