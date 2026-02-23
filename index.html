@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="hospital.js"></script>
+
 <style>
 :root {
   --sidebar-w: 320px;
@@ -111,6 +113,41 @@ body {
 
 
 
+/* 地図中央の十字 */
+.crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1200; /* 地図の上に */
+}
+.crosshair::before,
+.crosshair::after {
+  content: "";
+  position: absolute;
+  background: #111;
+  box-shadow: 0 0 2px rgba(255,255,255,0.8); /* 見やすく */
+}
+.crosshair::before {
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  transform: translateX(-50%);
+}
+.crosshair::after {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+
+
 /* スマホ用：サイドバーを上に */
 @media (max-width: 768px) {
 
@@ -181,7 +218,7 @@ body {
 <!-- 中段 -->
 <div class="panel">
   <div class="label">病院搬送まで</div>
-  <div class="big-number">5分</div>
+  <div class="big-number"><span id="etaNum">--</span>分</div>
 </div>
 
 <!-- 下段（全部大きく） -->
@@ -195,6 +232,37 @@ body {
 <script>
 /** ---------- Map ---------- */
 var map = L.map('map');
+// 病院CSVを1回だけ読み込み（hospital.js側のデフォルトCSV名を使用）
+const hospitalsReady = HospitalLib.loadHospitalsFromCSV();
+// 地図中央に十字
+L.DomUtil.create('div', 'crosshair', map.getContainer());
+
+async function updateEtaFromMapCenter() {
+  try {
+    await hospitalsReady; // CSV読み込み完了を待つ
+
+    const c = map.getCenter(); // 十字の位置＝地図中心
+    const r = HospitalLib.estimateTimeToNearestHospital(c.lat, c.lng);
+
+    // 分で表示（四捨五入）
+    const minutes = Math.max(0, Math.round(r.minutes));
+    const etaEl = document.getElementById('etaNum');
+    if (etaEl) etaEl.textContent = String(minutes);
+
+    // ついでに必要ならコンソールに距離も
+    // console.log('center', c.lat, c.lng, 'nearest', r.hospital?.name, r.distance_km, 'km');
+  } catch (e) {
+    console.error(e);
+    const etaEl = document.getElementById('etaNum');
+    if (etaEl) etaEl.textContent = '--';
+  }
+}
+
+map.on('moveend zoomend', updateEtaFromMapCenter);
+
+// 初回も反映（地図表示後に1回）
+setTimeout(updateEtaFromMapCenter, 300);
+
 
 function fixMapSizeOnResize() {
   // CSS切り替え後にLeafletへ「サイズ変わったよ」と通知
