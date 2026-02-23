@@ -2,10 +2,11 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Map from CSV</title>
+<title>Hospital Map</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
 #map { height: 100vh; margin:0; }
@@ -16,28 +17,35 @@
 <div id="map"></div>
 
 <script>
-var map = L.map('map').setView([35.0, 135.7], 8);
+var map = L.map('map').setView([36.0, 138.0], 5);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// CSV読み込み
-fetch("HospitalPlaceData.csv")
-  .then(response => response.text())
-  .then(text => {
-    const rows = text.split("\n");
-    rows.shift(); // ヘッダー削除
+// 固定ファイル読み込み
+fetch("HospitalPlaceData.xlsx")
+  .then(res => res.arrayBuffer())
+  .then(data => {
 
-    rows.forEach(row => {
-      const cols = row.split(",");
-      const lat = parseFloat(cols[10]);
-      const lng = parseFloat(cols[11]);
+    var workbook = XLSX.read(data, {type: 'array'});
+    var sheet = workbook.Sheets[workbook.SheetNames[0]];
+    var rows = XLSX.utils.sheet_to_json(sheet, {header:1});
 
-      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-        L.marker([lat, lng]).addTo(map);
+    for (var i = 1; i < rows.length; i++) {
+
+      var row = rows[i];
+
+      if (row.length >= 12) {
+
+        var lat = parseFloat(row[10]); // K列
+        var lng = parseFloat(row[11]); // L列
+
+        if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+          L.marker([lat, lng]).addTo(map);
+        }
       }
-    });
+    }
   });
 </script>
 
