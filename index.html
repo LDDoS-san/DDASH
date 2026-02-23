@@ -67,17 +67,20 @@ body {
 
 /* 左サイドバー */
 .sidebar {
-  position: fixed !important;
+  position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: var(--sidebar-h-mobile);
-  z-index: 2000;
-
+  width: var(--sidebar-w);
+  height: 100vh;
+  z-index: 900; /* 地図より前（ボタンよりは下でもOK） */
+  background: #ffffff;
+  border-right: 1px solid #ddd;
+  box-sizing: border-box;
+  padding: 14px;
   display: flex;
-  flex-wrap: wrap;      /* ← これが無いと3段が収まらずはみ出す */
-  gap: 6px;
-  padding: 6px;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 20px;
 }
 
 .panel {
