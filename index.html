@@ -106,6 +106,9 @@ body {
 .panel .big-number {
   font: 700 64px/1 sans-serif;
 }
+.denominator {
+  font-size: 0.3em; /* 親の50%サイズ */
+}
 
 /* 下：全部大きく表示 */
 .panel.big-all {
@@ -191,6 +194,7 @@ body {
   .panel { padding: 6px; min-height: 0; }
   .panel .label { font-size: 12px; }
   .panel .big-number { font-size: 26px; }
+  .denominator { font-size: 0.3em; /* 親の50%サイズ */}
   .panel.big-all { font-size: 20px; }
 
   /* 凡例も小さめ */
@@ -213,7 +217,10 @@ body {
 <!-- 上段 -->
 <div class="panel">
   <div class="label">熱中症リスク</div>
-  <div class="big-number"><span id="riskNum">--</span>/100</div>
+  <div class="big-number">
+    <span id="riskNum">--</span>
+    <span class="denominator">/100</span>
+  </div>
   <div class="label"><span id="riskLevel">--</span></div>
 </div>
 
