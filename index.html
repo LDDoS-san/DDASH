@@ -3,28 +3,48 @@
 <head>
 <meta charset="utf-8" />
 <title>Hospital Map</title>
-
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-
 <style>
 #map { height: 100vh; margin:0; }
+.legend {
+  background: white;
+  padding: 10px 12px;
+  line-height: 1.3;
+  border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.2);
+  font: 13px/1.3 sans-serif;
+}
+.legend .row { display:flex; align-items:center; margin: 4px 0; }
+.legend i {
+  width: 14px; height: 14px; margin-right: 8px;
+  display:inline-block; border: 1px solid #666;
+}
 </style>
 </head>
 <body>
 <div id="map"></div>
 
 <script>
-/** ---------- 地図 ---------- */
+/** ---------- Map ---------- */
 var map = L.map('map');
-map.fitBounds([[34.85, 134.85],[35.75, 136.10]]); // 京都府ざっくり
+
+// pane（重なり順）を明示：ポリゴン < マーカー
+map.createPane('polygonsPane');
+map.getPane('polygonsPane').style.zIndex = 400;
+
+map.createPane('markersPane');
+map.getPane('markersPane').style.zIndex = 650; // markerPane(600)より上
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-/** ---------- WBGT 色 ---------- */
+// 京都府が最初に入る（ざっくり）
+map.fitBounds([[34.85, 134.85],[35.75, 136.10]]);
+
+/** ---------- Colors / Legend ---------- */
 function wbgtColor(w) {
   if (w == null || isNaN(w)) return "#cccccc";
   if (w >= 31) return "#ff0000"; // 危険
@@ -34,112 +54,163 @@ function wbgtColor(w) {
   return "#00bfff";              // ほぼ安全
 }
 
-/** ---------- Tw（湿球）近似：Stull系の代表的近似（T:°C, RH:%） ---------- */
+// 凡例
+var legend = L.control({position: 'bottomright'});
+legend.onAdd = function() {
+  var div = L.DomUtil.create('div', 'legend');
+  div.innerHTML = `
+    <div style="font-weight:700; margin-bottom:6px;">WBGT（屋外近似）</div>
+    <div class="row"><i style="background:${wbgtColor(32)}"></i>危険（31以上）</div>
+    <div class="row"><i style="background:${wbgtColor(29)}"></i>厳重警戒（28–30.9）</div>
+    <div class="row"><i style="background:${wbgtColor(26)}"></i>警戒（25–27.9）</div>
+    <div class="row"><i style="background:${wbgtColor(22)}"></i>注意（21–24.9）</div>
+    <div class="row"><i style="background:${wbgtColor(20)}"></i>ほぼ安全（〜20.9）</div>
+    <div class="row"><i style="background:#cccccc"></i>データなし</div>
+    <hr style="border:none; border-top:1px solid #ddd; margin:8px 0;">
+    <div class="row"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#000;margin-right:10px;"></span>病院（H=26）</div>
+  `;
+  return div;
+};
+legend.addTo(map);
+
+/** ---------- WBGT calculation (outdoor-ish) ---------- */
 function wetBulbStull(T, RH) {
-  // RHは 0-100
   const rh = Math.min(100, Math.max(0, RH));
-  // よく使われる近似形（Stull 2011の経験式として広く引用される）
-  // ※簡易で、標準気圧付近を想定
-  const Tw =
+  return (
     T * Math.atan(0.151977 * Math.sqrt(rh + 8.313659)) +
     Math.atan(T + rh) -
     Math.atan(rh - 1.676331) +
     0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) -
-    4.686035;
-  return Tw;
+    4.686035
+  );
 }
 
-/** ---------- WBGT（屋内/日陰相当の簡易近似） ---------- */
-function wbgtShade(T, RH) {
-  const Tw = wetBulbStull(T, RH);
-  return 0.7 * Tw + 0.3 * T;
-}
-
-/** ---------- Open-Meteoで 2025-08-01 の時系列を取り、日最大WBGTを返す ---------- */
-async function fetchDailyMaxWbgt(lat, lon) {
+async function fetchDailyMaxWbgtOutdoor(lat, lon) {
   const start = "2025-08-01";
   const end   = "2025-08-01";
   const url =
     "https://archive-api.open-meteo.com/v1/archive" +
     `?latitude=${lat}&longitude=${lon}` +
     `&start_date=${start}&end_date=${end}` +
-    "&hourly=temperature_2m,relative_humidity_2m" +
+    "&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation" +
     "&timezone=Asia%2FTokyo";
 
   const res = await fetch(url);
   if (!res.ok) throw new Error("Open-Meteo failed HTTP " + res.status);
   const j = await res.json();
 
-  const T = j.hourly?.temperature_2m;
+  const T  = j.hourly?.temperature_2m;
   const RH = j.hourly?.relative_humidity_2m;
-  if (!T || !RH || T.length === 0) return null;
+  const V  = j.hourly?.wind_speed_10m;        // m/s
+  const SR = j.hourly?.shortwave_radiation;   // W/m^2
+  if (!T || !RH || !V || !SR || T.length === 0) return null;
 
   let max = null;
   for (let i = 0; i < T.length; i++) {
-    const t = T[i], rh = RH[i];
-    if (t == null || rh == null) continue;
-    const w = wbgtShade(t, rh);
-    if (!isFinite(w)) continue;
-    max = (max == null) ? w : Math.max(max, w);
+    const t = T[i], rh = RH[i], v = V[i], sr = SR[i];
+    if (t == null || rh == null || v == null || sr == null) continue;
+
+    const Tw = wetBulbStull(t, rh);
+
+    // 黒球温度の超ざっくり推定
+    let Tg = t + 0.015 * sr - 0.6 * v;
+    if (sr < 50) Tg = t;        // 夜間は補正しない
+    if (Tg < t - 2) Tg = t - 2;
+    if (Tg > t + 25) Tg = t + 25;
+
+    const wbgt = 0.7 * Tw + 0.2 * Tg + 0.1 * t;
+    if (isFinite(wbgt)) max = (max == null) ? wbgt : Math.max(max, wbgt);
   }
   return max;
 }
 
-/** ---------- 市町村ポリゴン読み込み＆WBGTで塗る ---------- */
+/** ---------- Draw municipalities + color by WBGT ---------- */
+let muniLayer = null;
+
 fetch("kyoto_municipalities.geojson")
-  .then(r => r.json())
+  .then(r => {
+    if (!r.ok) throw new Error("GeoJSON fetch failed HTTP " + r.status);
+    return r.json();
+  })
   .then(async geo => {
-    // まず描く（後でstyle更新するために参照を持つ）
-    const layer = L.geoJSON(geo, {
+    muniLayer = L.geoJSON(geo, {
+      pane: 'polygonsPane',
       style: () => ({ color:"#333", weight:1, fillColor:"#cccccc", fillOpacity:0.40 }),
       onEachFeature: (feature, lyr) => {
         const p = feature.properties || {};
         const name = p.N03_004 || p.N03_003 || p.name || p.NAME || "unknown";
-        lyr.bindPopup(`${name}<br>WBGT(2025/08/01 日最大): 計算中...`);
+        lyr.bindPopup(`${name}<br>WBGT(2025/08/01 日最大・屋外近似): 計算中...`);
       }
     }).addTo(map);
 
-    map.fitBounds(layer.getBounds().pad(0.05));
+    // いったん境界でフィット
+    map.fitBounds(muniLayer.getBounds().pad(0.05));
 
-    // 各市町村の中心でWBGTを取る（市町村数だけリクエスト＝京都は多くても数十件）
+    // 各市町村の代表点（BBox中心）でWBGT取得 → 塗り替え
     const tasks = [];
-    layer.eachLayer(lyr => {
-      const feature = lyr.feature;
-      const p = feature.properties || {};
+    muniLayer.eachLayer(lyr => {
+      const p = lyr.feature?.properties || {};
       const name = p.N03_004 || p.N03_003 || p.name || p.NAME || "unknown";
-
-      // 市町村の代表点：境界BBoxの中心（軽い）
       const c = lyr.getBounds().getCenter();
-
       tasks.push((async () => {
-        const maxW = await fetchDailyMaxWbgt(c.lat, c.lng);
-        return { lyr, name, maxW };
+        const w = await fetchDailyMaxWbgtOutdoor(c.lat, c.lng);
+        return { lyr, name, w };
       })());
     });
 
     const results = await Promise.allSettled(tasks);
-
-    // 結果で塗り替え＆ポップアップ更新
     results.forEach(r => {
       if (r.status !== "fulfilled") return;
-      const { lyr, name, maxW } = r.value;
-
-      lyr.setStyle({
-        fillColor: wbgtColor(maxW),
-        fillOpacity: 0.45,
-        color: "#333",
-        weight: 1
-      });
-
-      const txt = (maxW == null) ? "N/A" : maxW.toFixed(1) + " °C";
-      lyr.bindPopup(`${name}<br>WBGT(2025/08/01 日最大・日陰近似): ${txt}`);
+      const { lyr, name, w } = r.value;
+      lyr.setStyle({ fillColor: wbgtColor(w), fillOpacity: 0.45, color:"#333", weight:1 });
+      lyr.bindPopup(`${name}<br>WBGT(2025/08/01 日最大・屋外近似): ${w == null ? "N/A" : w.toFixed(1)}`);
     });
   })
   .catch(err => {
     console.error(err);
-    alert("読み込み/計算でエラー: " + err.message);
+    alert("市町村の読み込み/計算エラー: " + err.message);
+  });
+
+/** ---------- Hospitals (H=26 only) ---------- */
+const hospitalLayer = L.layerGroup().addTo(map);
+
+fetch("HospitalPlaceData.xlsx")
+  .then(res => {
+    if (!res.ok) throw new Error("XLSX fetch failed HTTP " + res.status);
+    return res.arrayBuffer();
+  })
+  .then(data => {
+    const workbook = XLSX.read(data, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+    let count = 0;
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+
+      // H列=26
+      const hVal = parseFloat(String(row[7]).trim());
+      if (hVal !== 26) continue;
+
+      const lat = parseFloat(String(row[10]).trim()); // K
+      const lng = parseFloat(String(row[11]).trim()); // L
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        // circleMarker にすると塗りの上でも見やすい（paneで最前面）
+        L.circleMarker([lat, lng], {
+          pane: 'markersPane',
+          radius: 4,
+          weight: 1,
+          fillOpacity: 0.9
+        }).addTo(hospitalLayer);
+        count++;
+      }
+    }
+    console.log("Hospitals plotted:", count);
+  })
+  .catch(err => {
+    console.error(err);
+    alert("病院の読み込みエラー: " + err.message);
   });
 </script>
-
 </body>
 </html>
