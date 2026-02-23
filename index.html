@@ -500,6 +500,38 @@ fetch("kyoto_municipalities.geojson")
       lyr.setStyle({ fillColor: wbgtColor(w), fillOpacity: 0.45, color:"#333", weight:1 });
       lyr.bindPopup(`${name}<br>WBGT(2025/08/01 日最大・屋外近似): ${w == null ? "N/A" : w.toFixed(1)}`);
     });
+
+    map.on('moveend', async () => {
+
+      if (!muniLayer) return;
+
+      muniLayer.eachLayer(async (lyr) => {
+
+        // まだ灰色＝未完了だけ再実行
+        if (lyr.options.fillColor !== "#cccccc") return;
+
+        const p = lyr.feature?.properties || {};
+        const name = p.N03_004 || p.N03_003 || p.name || p.NAME || "unknown";
+        const c = lyr.getBounds().getCenter();
+
+        try {
+          const w = await fetchDailyMaxWbgtOutdoor(c.lat, c.lng);
+
+          lyr.setStyle({
+            fillColor: wbgtColor(w),
+            fillOpacity: 0.45,
+            color:"#333",
+            weight:1
+          });
+
+          lyr.bindPopup(`${name}<br>WBGT(2025/08/01 日最大・屋外近似): ${w == null ? "N/A" : w.toFixed(1)}`);
+
+        } catch(e) {
+          // 失敗したらそのまま（次の移動で再挑戦）
+        }
+      });
+
+    });
   })
   .catch(err => {
     console.error(err);
