@@ -97,45 +97,40 @@
 
 
 
-/* スマホ用：サイドバーを上に、地図を下に */
+/* スマホ用：サイドバーを上に */
 @media (max-width: 768px) {
-  :root { --sidebar-w: 0px; } /* 左余白を消す */
 
+  /* 左余白を完全に消す */
   #map {
-    margin-left: 0;                 /* 左余白なし */
-    height: calc(100vh - 220px);    /* サイドバー分だけ引く（必要に応じて調整） */
-    margin-top: 220px;              /* サイドバーの高さ分だけ下げる */
+    margin-left: 0 !important;
+    margin-top: 260px;             /* ← サイドバー高さ分 */
+    height: calc(100vh - 260px);   /* ← 同じ高さを引く */
   }
 
   .sidebar {
-    position: fixed;  /* 画面上部に固定 */
+    position: fixed;     /* ← absolute ではなく fixed */
     top: 0;
     left: 0;
-    width: 100vw;     /* 横幅いっぱい */
-    height: 220px;    /* スマホ時のサイドバー高さ（調整OK） */
-    z-index: 900;
+    width: 100%;
+    height: 260px;       /* ← ここ重要（地図と同じ値に） */
+    z-index: 1000;
     border-right: none;
     border-bottom: 1px solid #ddd;
 
-    /* 3段を横並びにするなら row、縦のままなら column */
-    flex-direction: row;
+    flex-direction: row; /* 横並び */
     gap: 10px;
     padding: 10px;
   }
 
   .panel {
     flex: 1;
-    padding: 8px;
   }
 
-  /* スマホは文字が大きすぎるので少し落とす（好みで） */
+  /* 文字サイズはスマホ用に少し縮小 */
   .sidebar { font-size: 18px; }
-  .panel .label { font: 14px/1.2 sans-serif; }
-  .panel .big-number { font: 700 28px/1 sans-serif; }
-  .panel.big-all { font: 700 22px/1.1 sans-serif; }
-
-  /* 右上ボタンがサイドバーに被る場合は少し下げる */
-  .settings-btn { top: 10px; right: 10px; }
+  .panel .label { font-size: 14px; }
+  .panel .big-number { font-size: 28px; }
+  .panel.big-all { font-size: 22px; }
 }
 
 </style>
@@ -163,7 +158,7 @@
 </div>
 <div id="map"></div>
 
-/* 右上 Settings ボタン */
+<!-- 右上 Settings ボタン -->
 <button class="settings-btn" onclick="location.href='settings.html'">
   Settings
 </button>
