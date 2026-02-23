@@ -7,7 +7,13 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
-#map { height: 100vh; margin:0; }
+:root { --sidebar-w: 320px; }
+
+#map {
+  height: 100vh;
+  margin: 0;
+  margin-left: var(--sidebar-w); /* ← 左余白 */
+}
 .legend {
   background: white;
   padding: 10px 12px;
@@ -21,10 +27,102 @@
   width: 14px; height: 14px; margin-right: 8px;
   display:inline-block; border: 1px solid #666;
 }
+
+
+
+/* 右上 Settings ボタン */
+.settings-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1000; /* 地図より前 */
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.2);
+  font: 14px/1 sans-serif;
+}
+.settings-btn:hover { background: #f5f5f5; }
+
+
+
+/* 左サイドバー */
+.sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-w);
+  height: 100vh;
+  z-index: 900; /* 地図より前（ボタンよりは下でもOK） */
+  background: #ffffff;
+  border-right: 1px solid #ddd;
+  box-sizing: border-box;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel {
+  flex: 1;                 /* 3段を均等に */
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* 中央寄せ */
+  align-items: center;     /* 中央寄せ */
+  text-align: center;
+}
+
+.panel .label {
+  font: 14px/1.2 sans-serif;
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+
+/* 上・中：数字だけ大きく真ん中 */
+.panel .big-number {
+  font: 700 44px/1 sans-serif;
+}
+
+/* 下：全部大きく表示 */
+.panel.big-all {
+  font: 700 34px/1.1 sans-serif; /* パネル内の文字全部が大きい */
+}
+
 </style>
 </head>
 <body>
+
+  
+<div class="sidebar">
+<!-- 上段 -->
+<div class="panel">
+  <div class="label">熱中症確率</div>
+  <div class="big-number">90%</div>
+</div>
+
+<!-- 中段 -->
+<div class="panel">
+  <div class="label">病院搬送まで</div>
+  <div class="big-number">5分</div>
+</div>
+
+<!-- 下段（全部大きく） -->
+<div class="panel big-all">
+  後遺症あり
+</div>
+</div>
 <div id="map"></div>
+
+/* 右上 Settings ボタン */
+<button class="settings-btn" onclick="location.href='settings.html'">
+  Settings
+</button>
 
 <script>
 /** ---------- Map ---------- */
