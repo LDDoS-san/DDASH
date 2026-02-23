@@ -63,7 +63,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  font-size: 40px;
+  font-size: 20px;
 }
 
 .panel {
@@ -80,7 +80,7 @@
 }
 
 .panel .label {
-  font: 30px/1.2 sans-serif;
+  font: 14px/1.2 sans-serif;
   opacity: 0.75;
   margin-bottom: 6px;
 }
@@ -92,7 +92,50 @@
 
 /* 下：全部大きく表示 */
 .panel.big-all {
-  font: 700 44px/1.1 sans-serif; /* パネル内の文字全部が大きい */
+  font: 700 34px/1.1 sans-serif; /* パネル内の文字全部が大きい */
+}
+
+
+
+/* スマホ用：サイドバーを上に、地図を下に */
+@media (max-width: 768px) {
+  :root { --sidebar-w: 0px; } /* 左余白を消す */
+
+  #map {
+    margin-left: 0;                 /* 左余白なし */
+    height: calc(100vh - 220px);    /* サイドバー分だけ引く（必要に応じて調整） */
+    margin-top: 220px;              /* サイドバーの高さ分だけ下げる */
+  }
+
+  .sidebar {
+    position: fixed;  /* 画面上部に固定 */
+    top: 0;
+    left: 0;
+    width: 100vw;     /* 横幅いっぱい */
+    height: 220px;    /* スマホ時のサイドバー高さ（調整OK） */
+    z-index: 900;
+    border-right: none;
+    border-bottom: 1px solid #ddd;
+
+    /* 3段を横並びにするなら row、縦のままなら column */
+    flex-direction: row;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .panel {
+    flex: 1;
+    padding: 8px;
+  }
+
+  /* スマホは文字が大きすぎるので少し落とす（好みで） */
+  .sidebar { font-size: 18px; }
+  .panel .label { font: 14px/1.2 sans-serif; }
+  .panel .big-number { font: 700 28px/1 sans-serif; }
+  .panel.big-all { font: 700 22px/1.1 sans-serif; }
+
+  /* 右上ボタンがサイドバーに被る場合は少し下げる */
+  .settings-btn { top: 10px; right: 10px; }
 }
 
 </style>
