@@ -11,7 +11,7 @@
 :root { --sidebar-w: 320px; }
 
 #map {
-  height: 100vh;
+  height: calc(100vh - 40px);  /* ← 40px 下余白 */
   margin: 0;
   margin-left: var(--sidebar-w); /* ← 左余白 */
 }
@@ -104,7 +104,7 @@
   #map {
     margin-left: 0 !important;
     margin-top: 130px !important;
-    height: calc(100vh - 130px) !important;
+    height: calc(100vh - 130px - 40px) !important;
   }
 
   .sidebar {
