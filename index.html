@@ -418,7 +418,7 @@ async function fetchDailyMaxWbgtOutdoor(lat, lon) {
     "&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation" +
     "&timezone=Asia%2FTokyo";
 
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url, 8000);
   if (!res.ok) throw new Error("Open-Meteo failed HTTP " + res.status);
   const j = await res.json();
 
@@ -445,6 +445,18 @@ async function fetchDailyMaxWbgtOutdoor(lat, lon) {
     if (isFinite(wbgt)) max = (max == null) ? wbgt : Math.max(max, wbgt);
   }
   return max;
+}
+
+async function fetchWithTimeout(url, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
 }
 
 /** ---------- Draw municipalities + color by WBGT ---------- */
