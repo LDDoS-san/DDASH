@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="DistanceCalcurate.js"></script>
+<script src="RiskCalcurate.js"></script>
 
 <style>
 :root {
@@ -212,7 +213,8 @@ body {
 <!-- 上段 -->
 <div class="panel">
   <div class="label">熱中症確率</div>
-  <div class="big-number">90%</div>
+  <div class="big-number"><span id="riskNum">--</span>%</div>
+  <div class="label"><span id="riskLevel">--</span></div>
 </div>
 
 <!-- 中段 -->
@@ -258,11 +260,56 @@ async function updateEtaFromMapCenter() {
   }
 }
 
-map.on('moveend zoomend', updateEtaFromMapCenter);
+function maxWbgtAtIdx(idx) {
+  // その地点の「日最大WBGT」（24回なめるだけ）
+  let max = -Infinity;
+  for (const t of RiskLib.DATA.times) {
+    const v = RiskLib.DATA.wbgt[t][idx];
+    if (v > max) max = v;
+  }
+  return max;
+}
 
-// 初回も反映（地図表示後に1回）
-setTimeout(updateEtaFromMapCenter, 300);
+function updateRiskFromMapCenter() {
+  try {
+    if (!window.RiskLib) return;
 
+    const c = map.getCenter();
+    const idx = RiskLib.nearestGridIndex(c.lat, c.lng); // 地点ナンバー（配列index）:contentReference[oaicite:5]{index=5}
+
+    const wbgt = maxWbgtAtIdx(idx);
+
+    // ひとまず固定パラメータ（必要ならsettings.htmlから渡す）
+    const age = 30;
+    const met = 4.0;
+    const water = 0;
+
+    const [score, level] = RiskLib.riskScoreFromWbgtFine(wbgt, age, met, water); // :contentReference[oaicite:6]{index=6}
+
+    const riskEl = document.getElementById('riskNum');
+    const levelEl = document.getElementById('riskLevel');
+    if (riskEl) riskEl.textContent = String(score);
+    if (levelEl) levelEl.textContent = level;
+
+  } catch (e) {
+    console.error(e);
+    const riskEl = document.getElementById('riskNum');
+    const levelEl = document.getElementById('riskLevel');
+    if (riskEl) riskEl.textContent = '--';
+    if (levelEl) levelEl.textContent = '--';
+  }
+}
+
+map.on('moveend zoomend', () => {
+  updateEtaFromMapCenter();
+  updateRiskFromMapCenter();
+});
+
+// 初回
+setTimeout(() => {
+  updateEtaFromMapCenter();
+  updateRiskFromMapCenter();
+}, 300);
 
 function fixMapSizeOnResize() {
   // CSS切り替え後にLeafletへ「サイズ変わったよ」と通知
