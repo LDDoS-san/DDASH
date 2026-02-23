@@ -31,8 +31,8 @@ fetch("HospitalPlaceData.csv")
 
     rows.forEach(row => {
       const cols = row.split(",");
-      const lat = parseFloat(cols[0]);
-      const lng = parseFloat(cols[1]);
+      const lat = parseFloat(cols[10]);
+      const lng = parseFloat(cols[11]);
 
       if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
         L.marker([lat, lng]).addTo(map);
