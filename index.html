@@ -10,22 +10,25 @@
 <style>
 :root {
   --sidebar-w: 320px;
-  --bottom-gap: 40px;
+  --bottom-gap: 0px;
+  --outer-gap: 14px;  /* ← サイドバー上端〜最上ブロック間と同じ */
 }
-html, body {
-  margin: 0;
-  padding: 0;
-}
-
 body {
-  padding-bottom: 40px;   /* ページ全体の下余白 */
-  box-sizing: border-box;
+  padding-bottom: 0;
 }
 
 #map {
-  height: calc(100vh - var(--bottom-gap));
-  margin: 0;
-  margin-left: var(--sidebar-w);
+  /* 地図の外側余白（上・右・下） */
+  margin-top: var(--outer-gap);
+  margin-right: var(--outer-gap);
+  margin-bottom: var(--outer-gap);
+
+  /* 左側はサイドバー分＋外側余白 */
+  margin-left: calc(var(--sidebar-w) + var(--outer-gap));
+
+  /* 余白ぶんを引いたサイズにする（はみ出し防止） */
+  width: calc(100vw - var(--sidebar-w) - (var(--outer-gap) * 2));
+  height: calc(100vh - var(--bottom-gap) - (var(--outer-gap) * 2));
 }
 .legend {
   background: white;
@@ -114,9 +117,15 @@ body {
 @media (max-width: 768px) {
 
   #map {
-    margin-left: 0 !important;
-    margin-top: 130px !important;
-    height: calc(100vh - 130px - var(--bottom-gap)) !important;
+    margin-left: var(--outer-gap) !important;
+    margin-right: var(--outer-gap) !important;
+    margin-bottom: var(--outer-gap) !important;
+
+    /* 上はサイドバー(130px)＋外側余白 */
+    margin-top: calc(130px + var(--outer-gap)) !important;
+
+    width: calc(100vw - (var(--outer-gap) * 2)) !important;
+    height: calc(100vh - 130px - var(--bottom-gap) - (var(--outer-gap) * 2)) !important;
   }
 
   .sidebar {
