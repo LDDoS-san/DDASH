@@ -16,100 +16,129 @@
 <div id="map"></div>
 
 <script>
-// 1) 初期表示：京都府が画面に収まるように
+/** ---------- 地図 ---------- */
 var map = L.map('map');
-map.fitBounds([
-  [34.85, 134.85],
-  [35.75, 136.10]
-]);
+map.fitBounds([[34.85, 134.85],[35.75, 136.10]]); // 京都府ざっくり
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// --- 市町村ポリゴンを色塗り ---
-function hashToHue(str) {
-  // 文字列→安定した色（hue）にする簡易ハッシュ
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
-  return h % 360;
+/** ---------- WBGT 色 ---------- */
+function wbgtColor(w) {
+  if (w == null || isNaN(w)) return "#cccccc";
+  if (w >= 31) return "#ff0000"; // 危険
+  if (w >= 28) return "#ff7f00"; // 厳重警戒
+  if (w >= 25) return "#ffff00"; // 警戒
+  if (w >= 21) return "#7fffd4"; // 注意
+  return "#00bfff";              // ほぼ安全
 }
 
-function municipalityStyle(feature) {
-  // GeoJSONの属性名はデータによって違うので、候補をいくつか見る
-  const p = feature.properties || {};
-  const name =
-    p.N03_004 || p.N03_003 || p.name || p.NAME || p.city || "unknown";
-
-  const hue = hashToHue(String(name));
-  return {
-    // 色はHSLで作る（LeafletはCSSカラー文字列OK）
-    color: `hsl(${hue}, 60%, 35%)`,      // 境界線
-    weight: 1,
-    fillColor: `hsl(${hue}, 70%, 55%)`, // 塗り
-    fillOpacity: 0.35
-  };
+/** ---------- Tw（湿球）近似：Stull系の代表的近似（T:°C, RH:%） ---------- */
+function wetBulbStull(T, RH) {
+  // RHは 0-100
+  const rh = Math.min(100, Math.max(0, RH));
+  // よく使われる近似形（Stull 2011の経験式として広く引用される）
+  // ※簡易で、標準気圧付近を想定
+  const Tw =
+    T * Math.atan(0.151977 * Math.sqrt(rh + 8.313659)) +
+    Math.atan(T + rh) -
+    Math.atan(rh - 1.676331) +
+    0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) -
+    4.686035;
+  return Tw;
 }
 
+/** ---------- WBGT（屋内/日陰相当の簡易近似） ---------- */
+function wbgtShade(T, RH) {
+  const Tw = wetBulbStull(T, RH);
+  return 0.7 * Tw + 0.3 * T;
+}
+
+/** ---------- Open-Meteoで 2025-08-01 の時系列を取り、日最大WBGTを返す ---------- */
+async function fetchDailyMaxWbgt(lat, lon) {
+  const start = "2025-08-01";
+  const end   = "2025-08-01";
+  const url =
+    "https://archive-api.open-meteo.com/v1/archive" +
+    `?latitude=${lat}&longitude=${lon}` +
+    `&start_date=${start}&end_date=${end}` +
+    "&hourly=temperature_2m,relative_humidity_2m" +
+    "&timezone=Asia%2FTokyo";
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Open-Meteo failed HTTP " + res.status);
+  const j = await res.json();
+
+  const T = j.hourly?.temperature_2m;
+  const RH = j.hourly?.relative_humidity_2m;
+  if (!T || !RH || T.length === 0) return null;
+
+  let max = null;
+  for (let i = 0; i < T.length; i++) {
+    const t = T[i], rh = RH[i];
+    if (t == null || rh == null) continue;
+    const w = wbgtShade(t, rh);
+    if (!isFinite(w)) continue;
+    max = (max == null) ? w : Math.max(max, w);
+  }
+  return max;
+}
+
+/** ---------- 市町村ポリゴン読み込み＆WBGTで塗る ---------- */
 fetch("kyoto_municipalities.geojson")
-  .then(r => {
-    if (!r.ok) throw new Error("GeoJSON fetch failed: HTTP " + r.status);
-    return r.json();
-  })
-  .then(geo => {
+  .then(r => r.json())
+  .then(async geo => {
+    // まず描く（後でstyle更新するために参照を持つ）
     const layer = L.geoJSON(geo, {
-      style: municipalityStyle,
+      style: () => ({ color:"#333", weight:1, fillColor:"#cccccc", fillOpacity:0.40 }),
       onEachFeature: (feature, lyr) => {
         const p = feature.properties || {};
-        const name =
-          p.N03_004 || p.N03_003 || p.name || p.NAME || p.city || "unknown";
-        lyr.bindPopup(String(name));
+        const name = p.N03_004 || p.N03_003 || p.name || p.NAME || "unknown";
+        lyr.bindPopup(`${name}<br>WBGT(2025/08/01 日最大): 計算中...`);
       }
     }).addTo(map);
 
-    // 京都府全体が確実に入るように（ポリゴンの範囲でfit）
     map.fitBounds(layer.getBounds().pad(0.05));
+
+    // 各市町村の中心でWBGTを取る（市町村数だけリクエスト＝京都は多くても数十件）
+    const tasks = [];
+    layer.eachLayer(lyr => {
+      const feature = lyr.feature;
+      const p = feature.properties || {};
+      const name = p.N03_004 || p.N03_003 || p.name || p.NAME || "unknown";
+
+      // 市町村の代表点：境界BBoxの中心（軽い）
+      const c = lyr.getBounds().getCenter();
+
+      tasks.push((async () => {
+        const maxW = await fetchDailyMaxWbgt(c.lat, c.lng);
+        return { lyr, name, maxW };
+      })());
+    });
+
+    const results = await Promise.allSettled(tasks);
+
+    // 結果で塗り替え＆ポップアップ更新
+    results.forEach(r => {
+      if (r.status !== "fulfilled") return;
+      const { lyr, name, maxW } = r.value;
+
+      lyr.setStyle({
+        fillColor: wbgtColor(maxW),
+        fillOpacity: 0.45,
+        color: "#333",
+        weight: 1
+      });
+
+      const txt = (maxW == null) ? "N/A" : maxW.toFixed(1) + " °C";
+      lyr.bindPopup(`${name}<br>WBGT(2025/08/01 日最大・日陰近似): ${txt}`);
+    });
   })
-  .catch(err => console.error(err));
-
-// --- 病院マーカー（H列=26だけ） ---
-fetch("HospitalPlaceData.xlsx")
-  .then(res => {
-    if (!res.ok) throw new Error("XLSX fetch failed: HTTP " + res.status);
-    return res.arrayBuffer();
-  })
-  .then(data => {
-    var workbook = XLSX.read(data, { type: 'array' });
-    var sheet = workbook.Sheets[workbook.SheetNames[0]];
-    var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-
-    var bounds = L.latLngBounds();
-    var count = 0;
-
-    for (var i = 1; i < rows.length; i++) {
-      var row = rows[i];
-
-      // H列（0始まりで7）が26だけ
-      var hVal = parseFloat(String(row[7]).trim());
-      if (hVal !== 26) continue;
-
-      // K列(10), L列(11)
-      var lat = parseFloat(String(row[10]).trim());
-      var lng = parseFloat(String(row[11]).trim());
-
-      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-        L.marker([lat, lng]).addTo(map);
-        bounds.extend([lat, lng]);
-        count++;
-      }
-    }
-
-    // マーカーがあるなら、その範囲も含めて少し寄せる（任意）
-    if (count > 0) {
-      map.fitBounds(bounds.pad(0.15));
-    }
-  })
-  .catch(err => console.error(err));
+  .catch(err => {
+    console.error(err);
+    alert("読み込み/計算でエラー: " + err.message);
+  });
 </script>
 
 </body>
