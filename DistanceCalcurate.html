@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nearest Hospital Time</title>
+</head>
+<body>
+  <div style="padding:12px; font-family:sans-serif;">
+    <div>
+      緯度: <input id="lat" type="number" step="any" value="35.03191955105709">
+      経度: <input id="lon" type="number" step="any" value="135.75616463245433">
+      <button id="calc">計算</button>
+    </div>
+    <pre id="out" style="margin-top:12px; background:#f6f6f6; padding:10px; border-radius:8px;"></pre>
+  </div>
+
+<script>
+/**
+ * CSVの列位置（0始まり）
+ * Python: name=cols[1], lat=cols[9], lon=cols[10]
+ */
+const COL_NAME = 1;
+const COL_LAT  = 9;
+const COL_LON  = 10;
+
+// 走行条件（あなたのPythonと同じ）
+const BASE_SECONDS = 30;     // 到着までの固定時間
+const SPEED_KMH = 40;        // 移動速度
+
+let hospitals = []; // { name, lat, lon } の配列
+
+// ざっくりでも良いなら split(',') でもOKだけど、引用符に対応した簡易CSVパーサ
+function parseCSVLine(line) {
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+
+    if (ch === '"') {
+      // "" は " として扱う
+      if (inQuotes && line[i+1] === '"') {
+        cur += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (ch === ',' && !inQuotes) {
+      out.push(cur);
+      cur = '';
+      continue;
+    }
+
+    cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+async function loadHospitalsFromCSV(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`CSV fetch failed: HTTP ${res.status}`);
+  const text = await res.text();
+
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  const list = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+
+    // ヘッダ行っぽいものはスキップ（緯度が数値じゃない等）
+    const lat = parseFloat(cols[COL_LAT]);
+    const lon = parseFloat(cols[COL_LON]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+
+    const name = (cols[COL_NAME] ?? '').trim();
+    list.push({ name, lat, lon });
+  }
+
+  hospitals = list;
+  console.log('Hospitals loaded:', hospitals.length);
+}
+
+// 距離(km)：あなたの式（等距離近似：緯度111km、経度111km*cos(平均緯度)）
+function distanceKmApprox(lat1, lon1, lat2, lon2) {
+  const dLat = lat1 - lat2;
+  const dLon = lon1 - lon2;
+
+  const lat_km = dLat * 111.0;
+
+  // cosは「緯度」基準（平均緯度）
+  const meanLatRad = ((lat1 + lat2) / 2) * Math.PI / 180;
+  const lon_km = dLon * 111.0 * Math.cos(meanLatRad);
+
+  return Math.hypot(lat_km, lon_km);
+}
+
+/**
+ * これが欲しかった「関数」：
+ * 入力lat/lonから最寄り病院までの推定所要時間(秒)を返す
+ * ついでに最寄り病院名や距離も返す
+ */
+function estimateTimeToNearestHospital(lat, lon) {
+  if (!hospitals || hospitals.length === 0) {
+    throw new Error('Hospitals not loaded yet.');
+  }
+
+  let best = null;
+  let minKm = Infinity;
+
+  for (const h of hospitals) {
+    const km = distanceKmApprox(lat, lon, h.lat, h.lon);
+    if (km < minKm) {
+      minKm = km;
+      best = h;
+    }
+  }
+
+  const timeSeconds = BASE_SECONDS + (minKm / SPEED_KMH) * 3600; // km / (km/h) → h → s
+  return {
+    seconds: timeSeconds,
+    minutes: timeSeconds / 60,
+    distance_km: minKm,
+    hospital: best
+  };
+}
+
+// --- 初期化：CSV読み込み ---
+(async () => {
+  await loadHospitalsFromCSV('01-1_hospital_facility_info_20251201_kyoto.csv');
+
+  document.getElementById('calc').addEventListener('click', () => {
+    const lat = parseFloat(document.getElementById('lat').value);
+    const lon = parseFloat(document.getElementById('lon').value);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      document.getElementById('out').textContent = '緯度経度が正しくありません';
+      return;
+    }
+
+    const r = estimateTimeToNearestHospital(lat, lon);
+    document.getElementById('out').textContent =
+      `最寄り病院: ${r.hospital?.name ?? '(不明)'}\n` +
+      `距離: ${r.distance_km.toFixed(3)} km\n` +
+      `時間: ${r.seconds.toFixed(1)} 秒（${r.minutes.toFixed(1)} 分）`;
+  });
+})();
+</script>
+</body>
+</html>
