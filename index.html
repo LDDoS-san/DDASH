@@ -13,29 +13,83 @@
 </style>
 </head>
 <body>
-
 <div id="map"></div>
 
 <script>
-var map = L.map('map').setView([36.0, 138.0], 5);
+// 1) 初期表示：京都府が画面に収まるように
+var map = L.map('map');
+map.fitBounds([
+  [34.85, 134.85],
+  [35.75, 136.10]
+]);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
+// --- 市町村ポリゴンを色塗り ---
+function hashToHue(str) {
+  // 文字列→安定した色（hue）にする簡易ハッシュ
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+function municipalityStyle(feature) {
+  // GeoJSONの属性名はデータによって違うので、候補をいくつか見る
+  const p = feature.properties || {};
+  const name =
+    p.N03_004 || p.N03_003 || p.name || p.NAME || p.city || "unknown";
+
+  const hue = hashToHue(String(name));
+  return {
+    // 色はHSLで作る（LeafletはCSSカラー文字列OK）
+    color: `hsl(${hue}, 60%, 35%)`,      // 境界線
+    weight: 1,
+    fillColor: `hsl(${hue}, 70%, 55%)`, // 塗り
+    fillOpacity: 0.35
+  };
+}
+
+fetch("kyoto_municipalities.geojson")
+  .then(r => {
+    if (!r.ok) throw new Error("GeoJSON fetch failed: HTTP " + r.status);
+    return r.json();
+  })
+  .then(geo => {
+    const layer = L.geoJSON(geo, {
+      style: municipalityStyle,
+      onEachFeature: (feature, lyr) => {
+        const p = feature.properties || {};
+        const name =
+          p.N03_004 || p.N03_003 || p.name || p.NAME || p.city || "unknown";
+        lyr.bindPopup(String(name));
+      }
+    }).addTo(map);
+
+    // 京都府全体が確実に入るように（ポリゴンの範囲でfit）
+    map.fitBounds(layer.getBounds().pad(0.05));
+  })
+  .catch(err => console.error(err));
+
+// --- 病院マーカー（H列=26だけ） ---
 fetch("HospitalPlaceData.xlsx")
-  .then(res => res.arrayBuffer())
+  .then(res => {
+    if (!res.ok) throw new Error("XLSX fetch failed: HTTP " + res.status);
+    return res.arrayBuffer();
+  })
   .then(data => {
     var workbook = XLSX.read(data, { type: 'array' });
     var sheet = workbook.Sheets[workbook.SheetNames[0]];
-
-    // 空セルも保持して列ズレ・末尾欠けを防ぐ
     var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+    var bounds = L.latLngBounds();
+    var count = 0;
 
     for (var i = 1; i < rows.length; i++) {
       var row = rows[i];
 
-      // H列（0始まりで7）が 26 のものだけ
+      // H列（0始まりで7）が26だけ
       var hVal = parseFloat(String(row[7]).trim());
       if (hVal !== 26) continue;
 
@@ -45,9 +99,17 @@ fetch("HospitalPlaceData.xlsx")
 
       if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
         L.marker([lat, lng]).addTo(map);
+        bounds.extend([lat, lng]);
+        count++;
       }
     }
-  });
+
+    // マーカーがあるなら、その範囲も含めて少し寄せる（任意）
+    if (count > 0) {
+      map.fitBounds(bounds.pad(0.15));
+    }
+  })
+  .catch(err => console.error(err));
 </script>
 
 </body>
