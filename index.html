@@ -47,21 +47,18 @@ body {
 
 
 
-/* 右上 Settings ボタン */
-.settings-btn {
-  position: absolute;
-  top: calc(var(--outer-gap) + 10px);
-  right: calc(var(--outer-gap) + 10px);
-  z-index: 1000; /* 地図より前 */
-  background: white;
+.leaflet-control-settings-btn{
+  display: inline-block;
+  background: #fff;
   border: 1px solid #ccc;
   border-radius: 8px;
   padding: 8px 10px;
-  cursor: pointer;
+  text-decoration: none;
+  color: #000;
   box-shadow: 0 1px 6px rgba(0,0,0,0.2);
   font: 14px/1 sans-serif;
 }
-.settings-btn:hover { background: #f5f5f5; }
+.leaflet-control-settings-btn:hover{ background:#f5f5f5; }
 
 
 
@@ -117,39 +114,53 @@ body {
 /* スマホ用：サイドバーを上に */
 @media (max-width: 768px) {
 
+  /* サイドバー：上に固定、横並びで折り返し */
+  .sidebar {
+    position: fixed !important;
+    top: var(--outer-gap);
+    left: var(--outer-gap);
+    right: var(--outer-gap);
+    width: auto;
+    height: var(--sidebar-h-mobile);
+    z-index: 2000;
+
+    display: flex;
+    flex-direction: row;   /* ← 縦から横へ */
+    flex-wrap: wrap;       /* ← 折り返し */
+    gap: 6px;
+    padding: 6px;
+  }
+
+  /* 地図：サイドバーの下から開始（上のouter-gapも考慮） */
   #map {
     position: absolute !important;
-    top: calc(var(--sidebar-h-mobile) + var(--outer-gap)) !important;
+    top: calc(var(--sidebar-h-mobile) + (var(--outer-gap) * 2)) !important;
     right: var(--outer-gap) !important;
     bottom: var(--outer-gap) !important;
     left: var(--outer-gap) !important;
   }
 
-  .sidebar {
-    height: var(--sidebar-h-mobile);
-  }
-
-  /* 上2つを半分幅に */
+  /* 上2つを半分幅、下1つを横いっぱい */
   .sidebar .panel:nth-child(1),
   .sidebar .panel:nth-child(2) {
     flex: 1 1 48%;
   }
-
-  /* 下は横いっぱい */
   .sidebar .panel:nth-child(3) {
     flex: 1 1 100%;
   }
 
-  /* 文字サイズ調整 */
-  .sidebar { font-size: 16px; }
+  /* 収まりやすいように余白と文字を少し詰める */
+  .panel { padding: 6px; min-height: 0; }
+  .panel .label { font-size: 12px; }
   .panel .big-number { font-size: 26px; }
   .panel.big-all { font-size: 20px; }
 
+  /* 凡例も小さめ */
   .legend {
     padding: 6px 8px;
     font-size: 11px;
     line-height: 1.2;
-    max-width: 220px;    /* 横にデカくならないように */
+    max-width: 220px;
   }
   .legend .row { margin: 2px 0; }
   .legend i { width: 12px; height: 12px; margin-right: 6px; }
@@ -180,10 +191,6 @@ body {
 </div>
 <div id="map"></div>
 
-<!-- 右上 Settings ボタン -->
-<button class="settings-btn" onclick="location.href='settings.html'">
-  Settings
-</button>
 
 <script>
 /** ---------- Map ---------- */
@@ -210,6 +217,24 @@ map.getPane('markersPane').style.zIndex = 650; // markerPane(600)より上
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
+
+// Settings を「地図の右上」に出す（Leaflet Control）
+const SettingsControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd: function () {
+    const container = L.DomUtil.create('div', 'leaflet-control-settings');
+    const btn = L.DomUtil.create('a', 'leaflet-control-settings-btn', container);
+    btn.href = 'settings.html';
+    btn.textContent = 'Settings';
+    btn.setAttribute('role', 'button');
+
+    // 地図のドラッグ等を邪魔しない
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+    return container;
+  }
+});
+map.addControl(new SettingsControl());
 
 // 京都府が最初に入る（ざっくり）
 map.fitBounds([[34.85, 134.85],[35.75, 136.10]]);
