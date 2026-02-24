@@ -242,6 +242,8 @@ body {
 
 
 <script>
+let ambulanceMarker = null;
+let animationFrameId = null;
 let simulationRouteLayer = null;
 /** ---------- Map ---------- */
 var map = L.map('map');
@@ -720,17 +722,65 @@ fetch("HospitalPlaceData.xlsx")
       style: { color: "red", weight: 5 }
     }).addTo(map);
 
-    // ⑥ 地図をルート範囲にフィット（病院が範囲に入る）
-    map.fitBounds(simulationRouteLayer.getBounds());
 
-    // デバッグ用（任意）
-    console.log(`Nearest hospital: ${h.name}`, result);
+    // ===============================
+    // 🚑 救急車アニメーション（5秒）
+    // ===============================
 
-  } catch (e) {
-    console.error(e);
-    alert(e.message || "シミュレーション開始に失敗しました");
-  }
-});
+    // 既存の救急車があれば削除
+    if (ambulanceMarker) {
+      map.removeLayer(ambulanceMarker);
+    }
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+    }
+
+    // ルート座標取得（OSRMは [lng, lat]）
+    const coords = routeGeoJSON.coordinates.map(c => [c[1], c[0]]);
+
+    // 救急車アイコン
+    const ambulanceIcon = L.divIcon({
+      html: "🚑",
+      className: "",
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+
+    // 病院スタート（coordsの最後が病院）
+    ambulanceMarker = L.marker(coords[coords.length - 1], {
+      icon: ambulanceIcon
+    }).addTo(map);
+
+    const duration = 5000; // 5秒
+    const startTime = performance.now();
+
+    function animate(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // ルートを逆方向に移動（病院 → ゴール）
+      const index = Math.floor((coords.length - 1) * (1 - progress));
+      ambulanceMarker.setLatLng(coords[index]);
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(animate);
+      }
+    }
+
+    animationFrameId = requestAnimationFrame(animate);
+
+
+        // ⑥ 地図をルート範囲にフィット（病院が範囲に入る）
+        map.fitBounds(simulationRouteLayer.getBounds());
+
+        // デバッグ用（任意）
+        console.log(`Nearest hospital: ${h.name}`, result);
+
+      } catch (e) {
+        console.error(e);
+        alert(e.message || "シミュレーション開始に失敗しました");
+      }
+    });
 
 function parseCSVLine(line) {
   const out = [];
