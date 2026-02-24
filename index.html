@@ -1134,7 +1134,7 @@ fetch("HospitalPlaceData.xlsx")
     animationFrameId = requestAnimationFrame(animate);
 
     // ⑥ 地図をルート範囲にフィット（病院が範囲に入る）
-    map.fitBounds(polyline.getBounds(), {
+    map.fitBounds(simulationRouteLayer.getBounds(), {
       paddingTopLeft: [20, 20],
       paddingBottomRight: [20, 20],
       paddingBottomLeft: [80, 120]  // ← ここを大きくすると左下に余白
