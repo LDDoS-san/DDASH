@@ -739,11 +739,10 @@ fetch("HospitalPlaceData.xlsx")
     const coords = routeGeoJSON.coordinates.map(c => [c[1], c[0]]);
 
     // 救急車アイコン
-    const ambulanceIcon = L.divIcon({
-      html: "🚑",
-      className: "",
-      iconSize: [30, 30],
-      iconAnchor: [15, 15]
+    const ambulanceIcon = L.icon({
+      iconUrl: "ambulance.png",
+      iconSize: [60, 60],
+      iconAnchor: [30, 30]
     });
 
     // 病院スタート（coordsの最後が病院）
