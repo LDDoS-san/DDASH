@@ -378,8 +378,8 @@ function formatYen(n) {
   return Math.round(n).toLocaleString("ja-JP");
 }
 
-function expectedDailyMedicalCostYen(result, dayIndex){
-  // dayIndex: 1,2,3...
+function expectedDailyMedical10wariYen(result, dayIndex){
+  // DPC包括（10割）の日額期待値
   if (!result?.scenarios?.length) return null;
 
   const sim = window.heatstrokeInpatientCostSim;
@@ -393,8 +393,8 @@ function expectedDailyMedicalCostYen(result, dayIndex){
     const p = s.probability ?? 0;
     const variant = s.variant;
     const rule = dpc?.[variant];
-    const k = s?.breakdowns?.medical?.scaling_k; // detailed版なら入ってる
-    if (!rule || !Number.isFinite(k)) continue;
+    const k = s?.breakdowns?.medical?.scaling_k; // detailed版で入る想定
+    if (!rule || !Number.isFinite(k) || !Number.isFinite(p)) continue;
 
     let ptsPerDay = 0;
     const d = dayIndex;
@@ -402,9 +402,9 @@ function expectedDailyMedicalCostYen(result, dayIndex){
     if (d <= rule.dayI) ptsPerDay = rule.pointsI;
     else if (d <= rule.dayII) ptsPerDay = rule.pointsII;
     else if (d <= rule.dayIII) ptsPerDay = rule.pointsIII;
-    else ptsPerDay = 0; // dayIII超は本モデルでは加算しない
+    else ptsPerDay = 0;
 
-    const yen10wari = ptsPerDay * k * 10; // 1点=10円（スケール後） :contentReference[oaicite:4]{index=4}
+    const yen10wari = ptsPerDay * k * 10; // 1点=10円
     sum += p * yen10wari;
     hasAny = true;
   }
@@ -412,13 +412,43 @@ function expectedDailyMedicalCostYen(result, dayIndex){
   return hasAny ? Math.round(sum) : null;
 }
 
-function buildDailyLines(result, daysToShow = 5){
-  const lines = [];
-  for (let d = 1; d <= daysToShow; d++) {
-    const yen = expectedDailyMedicalCostYen(result, d);
-    const label = (d === 1) ? "初日" : `${d}日目`;
-    lines.push(`${label}（10割）:${formatYen(yen)}円`);
+function buildDailyOopLines(result, days){
+  // ① まず各日の「3割（raw）」を作る
+  const COPAY_RATE = 0.3; // このモデルでは基本3割として扱う（必要なら年齢で変える）
+  const rawPerDay = [];
+  let rawSum = 0;
+
+  for (let d = 1; d <= days; d++) {
+    const tenwari = expectedDailyMedical10wariYen(result, d);
+    const raw = Number.isFinite(tenwari) ? Math.round(tenwari * COPAY_RATE) : 0;
+    rawPerDay.push(raw);
+    rawSum += raw;
   }
+
+  // ② 最終の自己負担合計（上限など反映済み）を取得
+  const oopTotal = result?.expected?.outOfPocketYen;
+  if (!Number.isFinite(oopTotal) || rawSum <= 0) {
+    // 取れない/割れない場合は raw のまま返す
+    const lines = rawPerDay.map((yen, i) => `${i===0 ? "初日" : `${i+1}日目`}：${formatYen(yen)}円`);
+    lines.push(`合計：${formatYen(rawSum)}円`);
+    return lines;
+  }
+
+  // ③ 日別rawを、最終合計oopTotalに合うように按分（比例配分）
+  const factor = oopTotal / rawSum;
+  let allocatedSum = 0;
+  const allocated = rawPerDay.map(y => {
+    const a = Math.round(y * factor);
+    allocatedSum += a;
+    return a;
+  });
+
+  // ④ 丸め誤差を最終日に寄せて、合計をピッタリ合わせる
+  const diff = Math.round(oopTotal - allocatedSum);
+  allocated[allocated.length - 1] += diff;
+
+  const lines = allocated.map((yen, i) => `${i===0 ? "初日" : `${i+1}日目`}：${formatYen(yen)}円`);
+  lines.push(`合計：${formatYen(oopTotal)}円`);
   return lines;
 }
 
@@ -1075,15 +1105,17 @@ fetch("HospitalPlaceData.xlsx")
           const r = computeInpatientCostResult(transportMin);
 
           const los = expectedLosDays(r);
-          const oop = r?.expected?.outOfPocketYen;
+          const daysToShow = Math.max(1, Math.min(10, Number.isFinite(los) ? los : 5)); // 表示は最大10日（好みで調整）
 
-          // 何日分まで出す？（吹き出しが長くなるので 3〜6 くらいが見やすい）
-          const dailyLines = buildDailyLines(r, 5);
+          const dailyOopLines = buildDailyOopLines(r, daysToShow);
+
+          // 参考で「3割合計（上限前）」も出したい場合
+          // const rawTotal = pickOopExpected(r, "raw_copay");
 
           popAmbulanceMessages(ambulanceMarker, [
             `入院：${los ?? "--"}日`,
-            `自己負担（概算）:${formatYen(oop)}円`,
-            ...dailyLines
+            ...dailyOopLines
+            // `（参考）3割合計：${formatYen(rawTotal)}円`
           ]);
 
           return; // 終了
