@@ -3,7 +3,7 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta charset="utf-8" />
-<title>Hospital Map</title>
+<title>Map</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -395,6 +395,14 @@ legend.onAdd = function() {
         <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3388ff;"></span>
         病院
       </label>
+    </div>
+
+    <div class="row">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input id="toggle-parks" type="checkbox" checked>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2ecc71;"></span>
+        公園
+      </label>
     </div>  `;
   return div;
 };
@@ -544,6 +552,7 @@ fetch("kyoto_municipalities.geojson")
 
 /** ---------- Hospitals (H=26 only) ---------- */
 const hospitalLayer = L.layerGroup().addTo(map);
+const parkLayer = L.layerGroup().addTo(map); // 公園は最初ON
 
 // 凡例のチェックボックスで病院レイヤーON/OFF
 setTimeout(() => {
@@ -556,6 +565,15 @@ setTimeout(() => {
     } else {
       map.removeLayer(hospitalLayer);
     }
+  });
+}, 0);
+
+setTimeout(() => {
+  const cb = document.getElementById('toggle-parks');
+  if (!cb) return;
+  cb.addEventListener('change', () => {
+    if (cb.checked) parkLayer.addTo(map);
+    else map.removeLayer(parkLayer);
   });
 }, 0);
 
@@ -597,6 +615,45 @@ fetch("HospitalPlaceData.xlsx")
     alert("病院の読み込みエラー: " + err.message);
   });
 
+
+  fetch("ParkPlaceData.xlsx") // ←公園のXLSXファイル名に変更
+  .then(res => {
+    if (!res.ok) throw new Error("Park XLSX fetch failed HTTP " + res.status);
+    return res.arrayBuffer();
+  })
+  .then(buf => {
+    const wb = XLSX.read(buf, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+    parkLayer.clearLayers(); // 再読み込み時に重複させない（不要なら消してOK）
+
+    let count = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      // B列=緯度, C列=経度（0始まりで 1,2）
+      const lat = parseFloat(String(row[1]).trim());
+      const lng = parseFloat(String(row[2]).trim());
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+      L.circleMarker([lat, lng], {
+        radius: 4,
+        weight: 1,
+        fillOpacity: 0.9,
+        color: "#2ecc71",
+        fillColor: "#2ecc71"
+      }).addTo(parkLayer);
+
+      count++;
+    }
+    console.log("Parks plotted:", count);
+  })
+  .catch(err => {
+    console.error(err);
+    alert("公園XLSXの読み込みエラー: " + (err.message || err));
+  });
 
   document.getElementById("startSimulationBtn").addEventListener("click", async () => {
   try {
@@ -674,6 +731,25 @@ fetch("HospitalPlaceData.xlsx")
     alert(e.message || "シミュレーション開始に失敗しました");
   }
 });
+
+function parseCSVLine(line) {
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+      continue;
+    }
+    if (ch === ',' && !inQuotes) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
 </script>
 </body>
 </html>
