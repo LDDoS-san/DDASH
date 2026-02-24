@@ -617,14 +617,37 @@ fetch("HospitalPlaceData.xlsx")
     const hospitalLat = h.lat;
     const hospitalLon = h.lon;
 
+    if (![startLat, startLon, hospitalLat, hospitalLon].every(Number.isFinite)) {
+      console.error("Invalid coords:", { startLat, startLon, hospitalLat, hospitalLon, h });
+      alert("座標が不正です（NaNなど）。コンソールを見てください。");
+      return;
+    }
+
     // ③ OSRMでルート取得（driving）
     const url = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${hospitalLon},${hospitalLat}?overview=full&geometries=geojson`;
 
     const response = await fetch(url);
+
+    // HTTPがそもそも失敗してたらここで分かる
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      console.error("OSRM HTTP error:", response.status, text);
+      alert(`OSRM HTTP error: ${response.status}`);
+      return;
+    }
+
     const data = await response.json();
+    console.log("OSRM response:", data);
+
+    // OSRMの失敗理由を出す（超重要）
+    if (data.code && data.code !== "Ok") {
+      console.error("OSRM error:", data.code, data.message);
+      alert(`OSRM error: ${data.code}\n${data.message || ""}`);
+      return;
+    }
 
     if (!data.routes || data.routes.length === 0) {
-      alert("ルート取得失敗");
+      alert("ルートが見つかりません（routesが空）");
       return;
     }
 
