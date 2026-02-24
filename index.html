@@ -839,16 +839,22 @@ fetch("HospitalPlaceData.xlsx")
       // ★ 公園と同じ列構造なら
       const lat = parseFloat(String(rows[i][1]).trim());
       const lng = parseFloat(String(rows[i][2]).trim());
+      const name = String(rows[i][3]).trim();
 
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
-      L.circleMarker([lat, lng], {
+      const marker = L.circleMarker([lat, lng], {
         radius: 5,
         weight: 1,
         fillOpacity: 0.9,
         color: "#ff69b4",
         fillColor: "#ff69b4"
-      }).addTo(touristLayer);
+      });
+
+      // ★ クリックで名前表示
+      marker.bindPopup(name || "観光地");
+
+      marker.addTo(touristLayer);
 
       count++;
     }
