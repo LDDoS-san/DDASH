@@ -743,7 +743,7 @@ fetch("HospitalPlaceData.xlsx")
       iconAnchor: [30, 30]
     });
 
-    ambulanceMarker = L.marker(startPoint, {
+    ambulanceMarker = L.marker(coords[coords.length - 1], {
       icon: ambulanceIcon
     }).addTo(map);
 
