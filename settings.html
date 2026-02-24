@@ -15,7 +15,6 @@
       --muted:#5b647a;
       --line:#d8deea;
       --accent:#2f6bff;
-      --danger:#d93025;
 
       --fs-base: 16px;
       --fs-label: 15px;
@@ -66,12 +65,6 @@
       background: #ffffff;
     }
 
-    header a[aria-current="page"] {
-      color:var(--text);
-      border-color:var(--accent);
-      background: rgba(47,107,255,.08);
-    }
-
     main { max-width:900px; margin:0 auto; padding:16px; }
 
     .card {
@@ -108,7 +101,7 @@
       margin-bottom:8px;
     }
 
-    input:not([type="checkbox"]), select, textarea {
+    select, textarea, input:not([type="checkbox"]) {
       width:100%;
       box-sizing:border-box;
       background:#ffffff;
@@ -121,11 +114,7 @@
       outline: none;
     }
 
-    input:not([type="checkbox"])::placeholder { color: rgba(91,100,122,.7); }
-
-    input:not([type="checkbox"]):focus,
-    select:focus,
-    textarea:focus {
+    select:focus, textarea:focus, input:not([type="checkbox"]):focus {
       border-color: rgba(47,107,255,.7);
       box-shadow: 0 0 0 3px rgba(47,107,255,.15);
     }
@@ -182,8 +171,6 @@
       box-shadow: 0 8px 18px rgba(16,20,35,.06);
     }
 
-    button:hover { filter: brightness(0.98); }
-
     button.primary {
       border-color: rgba(47,107,255,.6);
       background: rgba(47,107,255,.10);
@@ -208,6 +195,17 @@
     .ok { color: #1b7f3a; }
     .warn { color: #8a5b00; }
 
+    .badge {
+      display:inline-block;
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #fff;
+      margin-left: 8px;
+    }
+
     @media (max-width: 640px){
       .col-6{ grid-column: span 12; }
       header{ padding: 16px 14px; }
@@ -215,13 +213,12 @@
     }
   </style>
 </head>
+
 <body>
 <header>
-  <h1>設定（個人プロファイル）</h1>
+  <h1>設定（利用者情報）</h1>
   <div class="nav">
-    <!-- ここを index.html に変更 -->
-    <a href="index.html">地図</a>
-    <a href="settings.html" aria-current="page">設定</a>
+    <a href="index.html" id="backLink">戻る</a>
   </div>
 </header>
 
@@ -229,13 +226,53 @@
   <div class="card">
     <h2>この画面の目的</h2>
     <p class="hint">
-      地図（＋予測が統合されたページ）で使う「個人要因（年齢など）」を入力します．<br/>
-      できるだけ<strong>最小入力</strong>で進め，詳細は任意にしています．データはこの端末のlocalStorageに保存されます（このHTMLはサーバ送信しません）．
+      熱中症リスク推定に使う情報を入力します．<br/>
+      <strong>動的データ</strong>（行動・水分）はその日の状況に合わせて更新し，
+      <strong>静的データ</strong>（年齢・体質など）は基本的に一度設定すればOKです．<br/>
+      データはこの端末の localStorage に保存されます（サーバ送信しません）．
     </p>
   </div>
 
   <form id="profileForm" class="card">
-    <h2>必須（おすすめ最小セット）</h2>
+    <h2>動的データ（行動・水分）<span class="badge">最初に入力</span></h2>
+    <p class="hint">
+      ここはリスクスコア推定の主要入力です．（WBGTは地図側で取得）<br/>
+      <strong>行動＝METs</strong>，<strong>水分＝直近2時間mL（0〜600，600以上は600扱い）</strong>で保存します．
+    </p>
+
+    <div class="grid">
+      <div class="col-6">
+        <label class="field" for="met">今日の行動</label>
+        <select id="met" name="met" required>
+          <option value="" selected>選択してください</option>
+        </select>
+        <p class="hint">数値入力は不可（選択のみ）．</p>
+      </div>
+
+      <div class="col-6">
+        <label class="field" for="water_ml_last2h">直近2時間の水分摂取量（mL）</label>
+        <select id="water_ml_last2h" name="water_ml_last2h" required>
+          <option value="" selected>選択してください</option>
+        </select>
+        <p class="hint">600mL以上は効果上限として扱う想定です（保存値は600）．</p>
+      </div>
+
+      <div class="col-6">
+        <label class="field" for="outing_hours">外出時間（任意）</label>
+        <select id="outing_hours" name="outing_hours">
+          <option value="" selected>未入力</option>
+        </select>
+        <p class="hint">任意です（将来の拡張やログ用）．</p>
+      </div>
+    </div>
+
+    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0;"/>
+
+    <h2>静的データ（基本固定）</h2>
+    <p class="hint">
+      年齢はリスク推定に使います．それ以外は任意です．
+    </p>
+
     <div class="grid">
       <div class="col-6">
         <label class="field" for="age">年齢（必須，0〜100）</label>
@@ -254,25 +291,6 @@
         </select>
       </div>
 
-      <div class="col-6">
-        <label class="field" for="acclimatized">暑熱順化（最近1週間）</label>
-        <select id="acclimatized" name="acclimatized">
-          <option value="low">あまり外に出ていない／暑さに慣れていない</option>
-          <option value="mid">ときどき外に出る</option>
-          <option value="high">ほぼ毎日暑い環境で活動している</option>
-        </select>
-      </div>
-
-      <div class="col-6">
-        <label class="field" for="activity">今日の活動強度（予定）</label>
-        <select id="activity" name="activity">
-          <option value="rest">外出ほぼなし</option>
-          <option value="light">徒歩移動・軽い外出</option>
-          <option value="work">屋外作業（立ち仕事含む）</option>
-          <option value="outdoor_exercise">屋外運動（部活・ラン等）</option>
-        </select>
-      </div>
-
       <div class="col-12">
         <div class="row">
           <label class="pill" for="can_use_ac">
@@ -280,7 +298,7 @@
             <span>滞在先でエアコンを使用できる</span>
           </label>
         </div>
-        <p class="hint">※「冷房に避難できるか」はWBGTとの差別化に直結します．</p>
+        <p class="hint">地図側の提案（避難行動）に利用できます．</p>
       </div>
     </div>
 
@@ -296,7 +314,7 @@
       </div>
 
       <div class="col-6">
-        <label class="field" for="weight_kg">体重（kg，1〜100）</label>
+        <label class="field" for="weight_kg">体重（kg，1〜150）</label>
         <select id="weight_kg">
           <option value="" selected>未入力</option>
         </select>
@@ -315,7 +333,7 @@
           <label class="pill"><input type="checkbox" name="cond" value="none" id="cond_none"/><span>特になし</span></label>
         </div>
         <p class="hint">
-          ※「特になし」をONの状態で別の持病を選ぶと，その持病をONにして「特になし」はOFFになります．
+          「特になし」をONの状態で別の持病を選ぶと，その持病をONにして「特になし」はOFFになります．
         </p>
       </div>
 
@@ -353,16 +371,6 @@
       </div>
 
       <div class="col-6">
-        <label class="field" for="hydration">今日の水分摂取（自己申告）</label>
-        <select id="hydration">
-          <option value="unknown">わからない</option>
-          <option value="low">少ない</option>
-          <option value="normal">普通</option>
-          <option value="high">多い</option>
-        </select>
-      </div>
-
-      <div class="col-6">
         <label class="field" for="alcohol_today">今日の飲酒</label>
         <select id="alcohol_today">
           <option value="unknown">答えない</option>
@@ -382,7 +390,6 @@
 
   <div class="card">
     <h2>保存データ（デバッグ用）</h2>
-    <p class="hint">地図ページはこのJSONを読み取って表示・推定に使う想定です．</p>
     <div id="jsonOut" class="mono">{}</div>
   </div>
 </main>
@@ -417,10 +424,48 @@
     }
   }
 
-  function setupNumericSelects() {
+  function addOption(selectEl, value, text) {
+    const opt = document.createElement("option");
+    opt.value = String(value);
+    opt.textContent = text;
+    selectEl.appendChild(opt);
+  }
+
+  // 行動（METs）を指定どおりに設定
+  function setupDynamicChoices() {
+    const metSel = document.getElementById("met");
+    const waterSel = document.getElementById("water_ml_last2h");
+    const outingSel = document.getElementById("outing_hours");
+
+    // METs（固定6択）
+    metSel.querySelectorAll("option:not(:first-child)").forEach(o => o.remove());
+    addOption(metSel, 1.2, "座って過ごす：1.2 METs");
+    addOption(metSel, 2.5, "歩行：2.5 METs");
+    addOption(metSel, 4.0, "徒歩通勤・通学：4.0 METs");
+    addOption(metSel, 6.0, "軽い運動（ジョギングなど）：6.0 METs");
+    addOption(metSel, 7.0, "自転車：7.0 METs");
+    addOption(metSel, 8.0, "ランニング：8.0 METs");
+
+    // 水分（0〜600，100刻み＋600以上）
+    waterSel.querySelectorAll("option:not(:first-child)").forEach(o => o.remove());
+    const waters = [0,100,200,300,400,500,600];
+    for (const ml of waters) {
+      if (ml === 600) addOption(waterSel, 600, "600以上（効果上限）");
+      else addOption(waterSel, ml, `${ml} mL`);
+    }
+
+    // 外出時間（任意）：0〜12時間（0.5刻み）
+    outingSel.querySelectorAll("option:not(:first-child)").forEach(o => o.remove());
+    for (let h = 0; h <= 12.0001; h += 0.5) {
+      const hh = Math.round(h * 10) / 10;
+      addOption(outingSel, hh, `${hh} 時間`);
+    }
+  }
+
+  function setupStaticSelects() {
     populateSelectRange(document.getElementById("age"), 0, 100, 1, (v) => `${v}`);
     populateSelectRange(document.getElementById("height_cm"), 50, 250, 1, (v) => `${v}`);
-    populateSelectRange(document.getElementById("weight_kg"), 1, 100, 1, (v) => `${v}`);
+    populateSelectRange(document.getElementById("weight_kg"), 1, 150, 1, (v) => `${v}`);
 
     const sSel = document.getElementById("sleep_hours");
     populateSelectRange(sSel, 0, 10, 0.5, (v) => `${v}`);
@@ -443,31 +488,36 @@
 
     for (const cb of others) {
       cb.addEventListener("change", () => {
-        if (cb.checked && none.checked) {
-          none.checked = false;
-        }
+        if (cb.checked && none.checked) none.checked = false;
       });
     }
   }
 
   function readForm() {
+    const metRaw = document.getElementById("met").value;
+    const met = metRaw === "" ? null : Number(metRaw);
+
+    const waterRaw = document.getElementById("water_ml_last2h").value;
+    const water_ml_last2h = waterRaw === "" ? null : Math.min(600, Number(waterRaw));
+
+    const outingRaw = document.getElementById("outing_hours").value;
+    const outing_hours = outingRaw === "" ? null : Number(outingRaw);
+
     const ageRaw = document.getElementById("age").value;
     const age = ageRaw === "" ? null : Number(ageRaw);
 
     const sex = document.getElementById("sex").value;
-    const acclimatized = document.getElementById("acclimatized").value;
-    const activity = document.getElementById("activity").value;
     const can_use_ac = document.getElementById("can_use_ac").checked;
 
     const heightRaw = document.getElementById("height_cm").value;
     const weightRaw = document.getElementById("weight_kg").value;
-    const height = heightRaw === "" ? null : Number(heightRaw);
-    const weight = weightRaw === "" ? null : Number(weightRaw);
+    const height_cm = heightRaw === "" ? null : Number(heightRaw);
+    const weight_kg = weightRaw === "" ? null : Number(weightRaw);
 
     let bmi = null;
-    if (height && weight && height > 0) {
-      const h = height / 100.0;
-      bmi = Math.round((weight / (h*h)) * 10) / 10;
+    if (height_cm && weight_kg && height_cm > 0) {
+      const h = height_cm / 100.0;
+      bmi = Math.round((weight_kg / (h*h)) * 10) / 10;
     }
 
     const conditions = Array.from(document.querySelectorAll('input[name="cond"]:checked')).map(x => x.value);
@@ -479,47 +529,87 @@
     const sleepRaw = document.getElementById("sleep_hours").value;
     const sleep_hours = sleepRaw === "" ? null : Number(sleepRaw);
 
-    const hydration = document.getElementById("hydration").value;
     const alcohol_today = document.getElementById("alcohol_today").value;
 
-    return {
-      age,
-      sex,
-      bmi,
-      acclimatized,
-      activity,
-      can_use_ac,
-      conditions,
-      meds_affect_heat,
-      pregnant,
-      recent_illness,
-      sleep_hours,
-      hydration,
-      alcohol_today,
-      updated_at: nowISO()
+    const updated_at = nowISO();
+
+    const obj = {
+      schema_version: 2,
+
+      dynamic: { met, water_ml_last2h, outing_hours, updated_at },
+      static: {
+        age, sex, can_use_ac, height_cm, weight_kg, bmi, conditions,
+        meds_affect_heat, pregnant, recent_illness, sleep_hours, alcohol_today, updated_at
+      },
+
+      // 地図側が「直接読む」ためのトップレベル（重要）
+      age, met, water_ml_last2h, outing_hours,
+
+      // 互換用（必要なら使う）
+      sex, can_use_ac, height_cm, weight_kg, bmi, conditions,
+      meds_affect_heat, pregnant, recent_illness, sleep_hours, alcohol_today,
+
+      updated_at
     };
+
+    return obj;
   }
 
   function applyToForm(data) {
-    document.getElementById("age").value = (data.age === null || data.age === undefined) ? "" : String(data.age);
-    document.getElementById("sex").value = data.sex ?? "unknown";
-    document.getElementById("acclimatized").value = data.acclimatized ?? "low";
-    document.getElementById("activity").value = data.activity ?? "rest";
-    document.getElementById("can_use_ac").checked = !!data.can_use_ac;
+    const v2 = (data && data.schema_version === 2) ? data : null;
+    const dyn = v2 ? (v2.dynamic || {}) : data;
+    const sta = v2 ? (v2.static || {}) : data;
 
-    document.getElementById("height_cm").value = "";
-    document.getElementById("weight_kg").value = "";
+    const metSel = document.getElementById("met");
+    const waterSel = document.getElementById("water_ml_last2h");
+    const outingSel = document.getElementById("outing_hours");
+
+    // met：6択に一致する場合のみ反映
+    const allowedMet = new Set(["1.2","2.5","4","4.0","6","6.0","7","7.0","8","8.0"]);
+    const metVal = (dyn && dyn.met != null) ? String(Number(dyn.met)) : "";
+    metSel.value = allowedMet.has(metVal) ? metVal : "";
+
+    // water：0〜600，600超は600扱い，100刻みに丸め
+    let wVal = (dyn && dyn.water_ml_last2h != null) ? Number(dyn.water_ml_last2h) : null;
+    if (wVal != null) {
+      wVal = Math.max(0, Math.min(600, wVal));
+      wVal = Math.round(wVal / 100) * 100;
+      if (wVal > 600) wVal = 600;
+    }
+    waterSel.value = (wVal != null) ? String(wVal) : "";
+
+    // outing：0.5刻みで丸め
+    let oVal = (dyn && dyn.outing_hours != null) ? Number(dyn.outing_hours) : null;
+    if (oVal != null) {
+      oVal = Math.max(0, Math.min(12, oVal));
+      oVal = Math.round(oVal * 2) / 2;
+    }
+    outingSel.value = (oVal != null) ? String(oVal) : "";
+
+    document.getElementById("age").value =
+      (sta && sta.age != null) ? String(sta.age) : "";
+
+    document.getElementById("sex").value = (sta && sta.sex) ? sta.sex : "unknown";
+    document.getElementById("can_use_ac").checked = !!(sta && sta.can_use_ac);
+
+    document.getElementById("height_cm").value =
+      (sta && sta.height_cm != null) ? String(sta.height_cm) : "";
+
+    document.getElementById("weight_kg").value =
+      (sta && sta.weight_kg != null) ? String(sta.weight_kg) : "";
 
     const all = Array.from(document.querySelectorAll('input[name="cond"]'));
-    const set = new Set(Array.isArray(data.conditions) ? data.conditions : []);
+    const set = new Set(Array.isArray(sta && sta.conditions) ? sta.conditions : []);
     for (const cb of all) cb.checked = set.has(cb.value);
 
-    document.getElementById("meds_affect_heat").value = data.meds_affect_heat ?? "unknown";
-    document.getElementById("pregnant").value = (data.pregnant === true) ? "true" : "false";
-    document.getElementById("recent_illness").value = data.recent_illness ?? "none";
-    document.getElementById("sleep_hours").value = (data.sleep_hours === null || data.sleep_hours === undefined) ? "" : String(data.sleep_hours);
-    document.getElementById("hydration").value = data.hydration ?? "unknown";
-    document.getElementById("alcohol_today").value = data.alcohol_today ?? "unknown";
+    document.getElementById("meds_affect_heat").value = (sta && sta.meds_affect_heat) ? sta.meds_affect_heat : "unknown";
+    document.getElementById("pregnant").value = (sta && sta.pregnant === true) ? "true" : "false";
+    document.getElementById("recent_illness").value = (sta && sta.recent_illness) ? sta.recent_illness : "none";
+
+    document.getElementById("sleep_hours").value =
+      (sta && sta.sleep_hours != null) ? String(sta.sleep_hours) : "";
+
+    document.getElementById("alcohol_today").value = (sta && sta.alcohol_today) ? sta.alcohol_today : "unknown";
   }
 
   document.getElementById("profileForm").addEventListener("submit", (e) => {
@@ -531,10 +621,22 @@
       return;
     }
 
+    const metSel = document.getElementById("met");
+    if (!metSel.checkValidity() || metSel.value === "") {
+      setStatus("今日の行動を選択してください．", "warn");
+      return;
+    }
+
+    const waterSel = document.getElementById("water_ml_last2h");
+    if (!waterSel.checkValidity() || waterSel.value === "") {
+      setStatus("直近2時間の水分摂取量を選択してください．", "warn");
+      return;
+    }
+
     const data = readForm();
     localStorage.setItem(KEY, JSON.stringify(data));
     renderJSON(data);
-    setStatus("保存しました．地図ページは heat_profile_v1 を読み取ってください．", "ok");
+    setStatus("保存しました．", "ok");
   });
 
   document.getElementById("loadBtn").addEventListener("click", () => {
@@ -551,18 +653,36 @@
     renderJSON({});
     document.getElementById("profileForm").reset();
     document.getElementById("age").value = "";
+    document.getElementById("met").value = "";
+    document.getElementById("water_ml_last2h").value = "";
+    document.getElementById("outing_hours").value = "";
     setStatus("削除しました．", "ok");
   });
 
-  setupNumericSelects();
+  setupDynamicChoices();
+  setupStaticSelects();
   attachConditionsBehavior();
 
   const initRaw = localStorage.getItem(KEY);
   if (initRaw) {
-    try { renderJSON(JSON.parse(initRaw)); } catch (_) { renderJSON({}); }
+    try {
+      const obj = JSON.parse(initRaw);
+      renderJSON(obj);
+      applyToForm(obj);
+    } catch (_) {
+      renderJSON({});
+    }
   } else {
     renderJSON({});
   }
+
+  // 「戻る」：履歴があれば戻る，なければindex.html
+  document.getElementById("backLink").addEventListener("click", (e) => {
+    if (window.history.length > 1) {
+      e.preventDefault();
+      window.history.back();
+    }
+  });
 </script>
 </body>
 </html>
