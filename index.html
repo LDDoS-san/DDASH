@@ -9,8 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="DistanceCalcurate.js"></script>
 <script src="wbgt_risk_tuned.js"></script>
-<script src="heatstroke_inpatient_cost_sim.js"></script>
-
+<script src="heatstroke_inpatient_cost_sim_detailed.js"></script>
 <style>
 :root {
   --sidebar-w: 320px;
@@ -323,31 +322,28 @@ async function updateEtaFromMapCenter() {
 }
 
 function computeInpatientCostResult(transportMin){
-  if (!window.heatstrokeInpatientCostSim?.simulateInpatientCost) return null;
+  const sim = window.heatstrokeInpatientCostSim;
+  if (!sim) return null;
 
   const p = loadHeatProfile();
 
-  // 設定が未入力のときの保険（落ちないように）
   const age = (p?.age ?? 30);
   const mets = (p?.met ?? 1.2);
   const waterIntakeMl = (p?.waterIntakeMl ?? 500);
   const outingHours = (p?.outingHours ?? 2);
 
-  // ここは今まで通り（必要なら後で設定画面に追加してもOK）
   const ambulanceArrivalMin = 10;
-
-  // WBGTは地図側で取れるならそこから入れるのが理想
   const wbgt = 32;
 
-  return window.heatstrokeInpatientCostSim.simulateInpatientCost({
-    age,
-    wbgt,
-    waterIntakeMl,
-    outingHours,
-    mets,
-    ambulanceArrivalMin,
-    transportMin
-  });
+  const input = { age, wbgt, waterIntakeMl, outingHours, mets, ambulanceArrivalMin, transportMin };
+
+  if (typeof sim.simulateInpatientCostDetailed === "function") {
+    return sim.simulateInpatientCostDetailed(input);
+  }
+  if (typeof sim.simulateInpatientCost === "function") {
+    return sim.simulateInpatientCost(input);
+  }
+  return null;
 }
 
 function expectedLosDays(result){
@@ -380,6 +376,50 @@ function popAmbulanceMessages(ambulanceMarker, messages, intervalMs = 650){
 function formatYen(n) {
   if (!Number.isFinite(n)) return "--";
   return Math.round(n).toLocaleString("ja-JP");
+}
+
+function expectedDailyMedicalCostYen(result, dayIndex){
+  // dayIndex: 1,2,3...
+  if (!result?.scenarios?.length) return null;
+
+  const sim = window.heatstrokeInpatientCostSim;
+  const dpc = sim?.DPC_161020;
+  if (!dpc) return null;
+
+  let sum = 0;
+  let hasAny = false;
+
+  for (const s of result.scenarios) {
+    const p = s.probability ?? 0;
+    const variant = s.variant;
+    const rule = dpc?.[variant];
+    const k = s?.breakdowns?.medical?.scaling_k; // detailed版なら入ってる
+    if (!rule || !Number.isFinite(k)) continue;
+
+    let ptsPerDay = 0;
+    const d = dayIndex;
+
+    if (d <= rule.dayI) ptsPerDay = rule.pointsI;
+    else if (d <= rule.dayII) ptsPerDay = rule.pointsII;
+    else if (d <= rule.dayIII) ptsPerDay = rule.pointsIII;
+    else ptsPerDay = 0; // dayIII超は本モデルでは加算しない
+
+    const yen10wari = ptsPerDay * k * 10; // 1点=10円（スケール後） :contentReference[oaicite:4]{index=4}
+    sum += p * yen10wari;
+    hasAny = true;
+  }
+
+  return hasAny ? Math.round(sum) : null;
+}
+
+function buildDailyLines(result, daysToShow = 5){
+  const lines = [];
+  for (let d = 1; d <= daysToShow; d++) {
+    const yen = expectedDailyMedicalCostYen(result, d);
+    const label = (d === 1) ? "初日" : `${d}日目`;
+    lines.push(`${label}（10割）:${formatYen(yen)}円`);
+  }
+  return lines;
 }
 
 function updateInpatientCostFromEtaMinutes(transportMin) {
@@ -767,7 +807,7 @@ fetch("HospitalPlaceData.xlsx")
         // circleMarker にすると塗りの上でも見やすい（paneで最前面）
         L.circleMarker([lat, lng], {
           pane: 'markersPane',
-          radius: 8,
+          radius: 6,
           weight: 1,
           fillOpacity: 0.9
         }).addTo(hospitalLayer);
@@ -806,7 +846,7 @@ fetch("HospitalPlaceData.xlsx")
 
       L.circleMarker([lat, lng], {
         pane: 'markersPane',
-        radius: 8,
+        radius: 6,
         weight: 1,
         fillOpacity: 0.9,
         color: "#2ecc71",
@@ -1037,10 +1077,13 @@ fetch("HospitalPlaceData.xlsx")
           const los = expectedLosDays(r);
           const oop = r?.expected?.outOfPocketYen;
 
-          console.log("bubbles test", ambulanceMarker?.getElement?.());
+          // 何日分まで出す？（吹き出しが長くなるので 3〜6 くらいが見やすい）
+          const dailyLines = buildDailyLines(r, 5);
+
           popAmbulanceMessages(ambulanceMarker, [
             `入院：${los ?? "--"}日`,
-            `入院費：${formatYen(oop)}円`
+            `自己負担（概算）:${formatYen(oop)}円`,
+            ...dailyLines
           ]);
 
           return; // 終了
