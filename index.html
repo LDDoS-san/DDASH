@@ -403,6 +403,13 @@ legend.onAdd = function() {
         <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2ecc71;"></span>
         公園
       </label>
+    </div>
+    <div class="row">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input id="toggle-tourist" type="checkbox" checked>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff69b4;"></span>
+        観光地
+      </label>
     </div>  `;
   return div;
 };
@@ -553,6 +560,7 @@ fetch("kyoto_municipalities.geojson")
 /** ---------- Hospitals (H=26 only) ---------- */
 const hospitalLayer = L.layerGroup().addTo(map);
 const parkLayer = L.layerGroup().addTo(map); // 公園は最初ON
+const touristLayer = L.layerGroup().addTo(map); // 観光地レイヤー（最初ON）
 
 // 凡例のチェックボックスで病院レイヤーON/OFF
 setTimeout(() => {
@@ -574,6 +582,15 @@ setTimeout(() => {
   cb.addEventListener('change', () => {
     if (cb.checked) parkLayer.addTo(map);
     else map.removeLayer(parkLayer);
+  });
+}, 0);
+
+setTimeout(() => {
+  const cb = document.getElementById('toggle-tourist');
+  if (!cb) return;
+  cb.addEventListener('change', () => {
+    if (cb.checked) touristLayer.addTo(map);
+    else map.removeLayer(touristLayer);
   });
 }, 0);
 
@@ -653,6 +670,45 @@ fetch("HospitalPlaceData.xlsx")
   .catch(err => {
     console.error(err);
     alert("公園XLSXの読み込みエラー: " + (err.message || err));
+  });
+
+  fetch("TouristPlaceData.xlsx") // ←観光地ファイル名
+  .then(res => {
+    if (!res.ok) throw new Error("Tourist XLSX fetch failed HTTP " + res.status);
+    return res.arrayBuffer();
+  })
+  .then(buf => {
+    const wb = XLSX.read(buf, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+    touristLayer.clearLayers();
+
+    let count = 0;
+    for (let i = 0; i < rows.length; i++) {
+
+      // ★ 公園と同じ列構造なら
+      const lat = parseFloat(String(rows[i][1]).trim());
+      const lng = parseFloat(String(rows[i][2]).trim());
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+      L.circleMarker([lat, lng], {
+        radius: 5,
+        weight: 1,
+        fillOpacity: 0.9,
+        color: "#ff69b4",
+        fillColor: "#ff69b4"
+      }).addTo(touristLayer);
+
+      count++;
+    }
+
+    console.log("Tourist spots plotted:", count);
+  })
+  .catch(err => {
+    console.error(err);
+    alert("観光地XLSXの読み込みエラー: " + (err.message || err));
   });
 
   document.getElementById("startSimulationBtn").addEventListener("click", async () => {
