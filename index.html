@@ -784,37 +784,51 @@ fetch("kyoto_municipalities.geojson")
   });
 
 /** ---------- Hospitals (H=26 only) ---------- */
-const hospitalLayer = L.layerGroup().addTo(map);
-const parkLayer = L.markerClusterGroup({
-  disableClusteringAtZoom: 15,   
-  maxClusterRadius: 60,         
-  chunkedLoading: true,
-  showCoverageOnHover: false,
+function makeClusterLayer(hexColor, disableZoom = 14, radius = 60) {
+  return L.markerClusterGroup({
+    disableClusteringAtZoom: disableZoom, // ← ここで「早くばらける」
+    maxClusterRadius: radius,             // ← 小さいほど細かく分裂
+    chunkedLoading: true,
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true,
 
-  iconCreateFunction: function (cluster) {
-    return L.divIcon({
-      html: `
-        <div style="
-          background:#2ecc71;
-          color:white;
-          border-radius:50%;
-          width:40px;
-          height:40px;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          font-weight:bold;
-          border:3px solid white;
-        ">
-          ${cluster.getChildCount()}
-        </div>
-      `,
-      className: "",
-      iconSize: [36, 36]
-    });
-  }
-});
-const touristLayer = L.layerGroup().addTo(map); // 観光地レイヤー（最初ON）
+    iconCreateFunction: function (cluster) {
+      const n = cluster.getChildCount();
+      const size = (n >= 100) ? 44 : (n >= 10) ? 40 : 36;
+
+      return L.divIcon({
+        html: `
+          <div style="
+            background:${hexColor};
+            color:white;
+            border-radius:50%;
+            width:${size}px;
+            height:${size}px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-weight:900;
+            border:3px solid white;
+            box-shadow:0 2px 10px rgba(0,0,0,0.25);
+          ">${n}</div>
+        `,
+        className: "",
+        iconSize: [size, size]
+      });
+    }
+  });
+}
+
+// 色は「元の凡例」に合わせておく（変えたければここだけ）
+const hospitalLayer = makeClusterLayer("#3388ff", 13, 60); // 青
+const parkLayer     = makeClusterLayer("#2ecc71", 13, 60); // 緑
+const touristLayer  = makeClusterLayer("#ff69b4", 13, 60); // ピンク
+
+hospitalLayer.addTo(map);
+parkLayer.addTo(map);
+touristLayer.addTo(map);
+
+
 
 const hospitalIcon = L.icon({
   iconUrl: "hospital.png",
