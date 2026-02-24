@@ -325,15 +325,26 @@ async function updateEtaFromMapCenter() {
 function computeInpatientCostResult(transportMin){
   if (!window.heatstrokeInpatientCostSim?.simulateInpatientCost) return null;
 
+  const p = loadHeatProfile();
+
+  // 設定が未入力のときの保険（落ちないように）
+  const age = (p?.age ?? 30);
+  const mets = (p?.met ?? 1.2);
+  const waterIntakeMl = (p?.waterIntakeMl ?? 0);
+  const outingHours = (p?.outingHours ?? 2);
+
+  // ここは今まで通り（必要なら後で設定画面に追加してもOK）
   const ambulanceArrivalMin = 10;
+
+  // WBGTは地図側で取れるならそこから入れるのが理想
   const wbgt = 32;
-  const age = 30;
-  const waterIntakeMl = 500;
-  const outingHours = 2;
-  const mets = 1.2;
 
   return window.heatstrokeInpatientCostSim.simulateInpatientCost({
-    age, wbgt, waterIntakeMl, outingHours, mets,
+    age,
+    wbgt,
+    waterIntakeMl,
+    outingHours,
+    mets,
     ambulanceArrivalMin,
     transportMin
   });
@@ -420,24 +431,26 @@ async function updateRiskFromMapCenter() {
   try {
     const c = map.getCenter();
 
+    const p = loadHeatProfile();
+    const age = (p?.age ?? 30);
+    const met = (p?.met ?? 1.2);
+    const water_ml_last2h = (p?.water_ml_last2h ?? 0);
+
     const result = await WBGTRiskTuned.getRiskAt({
       lat: c.lat,
       lon: c.lng,
       day: "2025-08-01",
       hour: 14,
       mode: "outdoor",
-      age: 30,
-      met: 1.2,
-      water_ml_last2h: 500
+      age,
+      met,
+      water_ml_last2h
     });
 
-    document.getElementById("riskNum").textContent =
-      result.risk.score;
+    document.getElementById("riskNum").textContent = result.risk.score;
+    document.getElementById("riskLevel").textContent = result.risk.level;
 
-    document.getElementById("riskLevel").textContent =
-      result.risk.level;
-
-    console.log(result);
+    console.log("risk inputs:", { age, met, water_ml_last2h }, result);
 
   } catch (e) {
     console.error(e);
@@ -1087,6 +1100,34 @@ function parseCSVLine(line) {
   }
   out.push(cur);
   return out;
+}
+
+const PROFILE_KEY = "heat_profile_v1";
+
+function loadHeatProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== "object") return null;
+
+    // v2想定：トップレベルにも age/met/water_ml_last2h/outing_hours がある
+    const age = (data.age != null) ? Number(data.age) : null;
+    const met = (data.met != null) ? Number(data.met) : null;
+    const waterIntakeMl = (data.water_ml_last2h != null) ? Number(data.water_ml_last2h) : null;
+    const outingHours = (data.outing_hours != null) ? Number(data.outing_hours) : null;
+
+    return {
+      age: Number.isFinite(age) ? age : null,
+      met: Number.isFinite(met) ? met : null,
+      waterIntakeMl: Number.isFinite(waterIntakeMl) ? waterIntakeMl : null,
+      outingHours: Number.isFinite(outingHours) ? outingHours : null,
+      updatedAt: data.updated_at || null
+    };
+  } catch (e) {
+    console.warn("loadHeatProfile failed:", e);
+    return null;
+  }
 }
 </script>
 </body>
