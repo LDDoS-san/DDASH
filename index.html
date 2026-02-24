@@ -805,6 +805,7 @@ fetch("HospitalPlaceData.xlsx")
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
       L.circleMarker([lat, lng], {
+        pane: 'markersPane',
         radius: 4,
         weight: 1,
         fillOpacity: 0.9,
@@ -844,6 +845,7 @@ fetch("HospitalPlaceData.xlsx")
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
       const marker = L.circleMarker([lat, lng], {
+        pane: 'markersPane',
         radius: 5,
         weight: 1,
         fillOpacity: 0.9,
