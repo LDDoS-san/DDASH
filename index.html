@@ -311,12 +311,56 @@ async function updateEtaFromMapCenter() {
 
     // ついでに必要ならコンソールに距離も
     // console.log('center', c.lat, c.lng, 'nearest', r.hospital?.name, r.distance_km, 'km');
-  } catch (e) {
-    console.error(e);
-    const etaEl = document.getElementById('etaNum');
-    if (etaEl) etaEl.textContent = '--';
-    updateInpatientCostFromEtaMinutes(roundedMin);
-  }
+    } catch (e) {
+      console.error(e);
+      const etaEl = document.getElementById('etaNum');
+      if (etaEl) etaEl.textContent = '--';
+      updateInpatientCostFromEtaMinutes(0);
+    }
+}
+
+function computeInpatientCostResult(transportMin){
+  if (!window.heatstrokeInpatientCostSim?.simulateInpatientCost) return null;
+
+  const ambulanceArrivalMin = 10;
+  const wbgt = 32;
+  const age = 30;
+  const waterIntakeMl = 500;
+  const outingHours = 2;
+  const mets = 1.2;
+
+  return window.heatstrokeInpatientCostSim.simulateInpatientCost({
+    age, wbgt, waterIntakeMl, outingHours, mets,
+    ambulanceArrivalMin,
+    transportMin
+  });
+}
+
+function expectedLosDays(result){
+  if (!result?.scenarios) return null;
+  const v = result.scenarios.reduce((acc, s) => acc + (s.probability * s.losDays), 0);
+  return Math.round(v);
+}
+
+function popAmbulanceMessages(ambulanceMarker, messages, intervalMs = 650){
+  const el = ambulanceMarker?.getElement?.();
+  if (!el) return;
+
+  const container = el.querySelector(".ambulance-bubbles");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  messages.forEach((msg, i) => {
+    setTimeout(() => {
+      const b = document.createElement("div");
+      b.className = "ambulance-bubble";
+      b.textContent = msg;
+      container.appendChild(b);
+
+      setTimeout(() => b.remove(), 2000);
+    }, i * intervalMs);
+  });
 }
 
 function formatYen(n) {
@@ -969,6 +1013,7 @@ fetch("HospitalPlaceData.xlsx")
           const los = expectedLosDays(r);
           const oop = r?.expected?.outOfPocketYen;
 
+          console.log("bubbles test", ambulanceMarker?.getElement?.());
           popAmbulanceMessages(ambulanceMarker, [
             `入院：${los ?? "--"}日`,
             `入院費：${formatYen(oop)}円`
