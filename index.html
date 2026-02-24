@@ -739,7 +739,13 @@ fetch("HospitalPlaceData.xlsx")
     const waitTime = 1000;      // ゴールで1秒停止
 
     // スタートは病院（最後）
-    ambulanceMarker = L.marker(coords[coords.length - 1], {
+    const ambulanceIcon = L.icon({
+      iconUrl: "ambulance.png",
+      iconSize: [60, 60],
+      iconAnchor: [30, 30]
+    });
+
+    ambulanceMarker = L.marker(startPoint, {
       icon: ambulanceIcon
     }).addTo(map);
 
