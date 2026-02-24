@@ -448,7 +448,7 @@ function buildDailyOopLines(result, days){
   allocated[allocated.length - 1] += diff;
 
   const lines = allocated.map((yen, i) => `${i===0 ? "初日" : `${i+1}日目`}：${formatYen(yen)}円`);
-  lines.push(`合計：${formatYen(oopTotal)}円`);
+  //lines.push(`合計：${formatYen(oopTotal)}円`);
   return lines;
 }
 
