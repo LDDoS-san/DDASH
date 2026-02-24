@@ -956,6 +956,13 @@ fetch("HospitalPlaceData.xlsx")
   document.getElementById("startSimulationBtn").textContent = "リセット";
   
     try {
+      // ✅ 地図準備＆病院CSV読み込み完了を待つ（早押しバグ対策）
+      await new Promise(res => map.whenReady(res));
+      await hospitalsReady;
+
+      // ついでにサイズ確定（初期表示直後のレイアウト揺れ対策）
+      map.invalidateSize();
+
     // ① 十字（地図中心）を取得
     const center = map.getCenter();
     const startLat = center.lat;
@@ -1122,9 +1129,6 @@ fetch("HospitalPlaceData.xlsx")
 
         const dailyOopLines = buildDailyOopLines(r, daysToShow);
         const oopTotal = r?.expected?.outOfPocketYen;
-        
-        const etaEl = document.getElementById("etaNum");
-        if (etaEl) etaEl.textContent = String(transportMin);
 
         // ここでちゃんと変数として messages / intervalMs を作る
         const intervalMs = 1500;
@@ -1140,6 +1144,9 @@ fetch("HospitalPlaceData.xlsx")
         const totalDelayMs = (messages.length - 1) * intervalMs;
 
         setTimeout(() => {
+          const etaEl = document.getElementById("etaNum");
+          if (etaEl) etaEl.textContent = String(transportMin);
+
           const costEl = document.getElementById("inpatientCost");
           if (costEl) costEl.textContent = formatYen(oopTotal);
         }, totalDelayMs);
