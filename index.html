@@ -786,13 +786,34 @@ fetch("kyoto_municipalities.geojson")
 /** ---------- Hospitals (H=26 only) ---------- */
 const hospitalLayer = L.layerGroup().addTo(map);
 const parkLayer = L.markerClusterGroup({
-  // ここが「拡大したら全部出す」の境目
-  disableClusteringAtZoom: 16,  // 例: ズーム16以上でクラスタ解除して全表示
-  chunkedLoading: true,         // 大量でも固まりにくい
-  spiderfyOnMaxZoom: true,
-  showCoverageOnHover: false
+  disableClusteringAtZoom: 15,   
+  maxClusterRadius: 60,         
+  chunkedLoading: true,
+  showCoverageOnHover: false,
+
+  iconCreateFunction: function (cluster) {
+    return L.divIcon({
+      html: `
+        <div style="
+          background:#2ecc71;
+          color:white;
+          border-radius:50%;
+          width:40px;
+          height:40px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-weight:bold;
+          border:3px solid white;
+        ">
+          ${cluster.getChildCount()}
+        </div>
+      `,
+      className: "",
+      iconSize: [36, 36]
+    });
+  }
 });
-parkLayer.addTo(map);
 const touristLayer = L.layerGroup().addTo(map); // 観光地レイヤー（最初ON）
 
 const hospitalIcon = L.icon({
