@@ -330,7 +330,7 @@ function computeInpatientCostResult(transportMin){
   // 設定が未入力のときの保険（落ちないように）
   const age = (p?.age ?? 30);
   const mets = (p?.met ?? 1.2);
-  const waterIntakeMl = (p?.waterIntakeMl ?? 0);
+  const waterIntakeMl = (p?.waterIntakeMl ?? 500);
   const outingHours = (p?.outingHours ?? 2);
 
   // ここは今まで通り（必要なら後で設定画面に追加してもOK）
@@ -434,7 +434,7 @@ async function updateRiskFromMapCenter() {
     const p = loadHeatProfile();
     const age = (p?.age ?? 30);
     const met = (p?.met ?? 1.2);
-    const water_ml_last2h = (p?.water_ml_last2h ?? 0);
+    const water_ml_last2h = (p?.water_ml_last2h ?? 500);
 
     const result = await WBGTRiskTuned.getRiskAt({
       lat: c.lat,
