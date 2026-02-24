@@ -153,6 +153,47 @@ body {
 
 
 
+/* 🚑 吹き出し（救急車右上にポンポン出す） */
+.ambulance-wrap{
+  position: relative;
+  width: 60px;
+  height: 60px;
+}
+.ambulance-wrap img{
+  width: 60px;
+  height: 60px;
+  display: block;
+}
+.ambulance-bubbles{
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+}
+.ambulance-bubble{
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #333;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font: 700 12px/1 sans-serif;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+
+  opacity: 0;
+  transform: translateY(8px);
+  animation: bubblePop 1.8s ease forwards;
+}
+
+@keyframes bubblePop{
+  0%   { opacity: 0; transform: translateY(8px); }
+  18%  { opacity: 1; transform: translateY(0); }
+  85%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
 /* スマホ用：サイドバーを上に */
 @media (max-width: 768px) {
 
@@ -870,8 +911,14 @@ fetch("HospitalPlaceData.xlsx")
     const waitTime = 1000;      // ゴールで1秒停止
 
     // スタートは病院（最後）
-    const ambulanceIcon = L.icon({
-      iconUrl: "ambulance.png",
+    const ambulanceIcon = L.divIcon({
+      className: "", // 余計なleafletデフォルトclassを避ける
+      html: `
+        <div class="ambulance-wrap">
+          <img src="ambulance.png" alt="ambulance">
+          <div class="ambulance-bubbles"></div>
+        </div>
+      `,
       iconSize: [60, 60],
       iconAnchor: [30, 30]
     });
@@ -895,8 +942,19 @@ fetch("HospitalPlaceData.xlsx")
         ambulanceMarker.setLatLng(coords[index]);
 
         if (progress >= 1) {
-          phase = "wait";
-          startTime = now;
+          // ✅ 病院に戻った瞬間：入院日数/入院費をポンポン表示
+          const transportMin = Number(document.getElementById("etaNum")?.textContent) || 0;
+          const r = computeInpatientCostResult(transportMin);
+
+          const los = expectedLosDays(r);
+          const oop = r?.expected?.outOfPocketYen;
+
+          popAmbulanceMessages(ambulanceMarker, [
+            `入院：${los ?? "--"}日`,
+            `入院費：${formatYen(oop)}円`
+          ]);
+
+          return; // 終了
         }
 
       // ========= ゴールで停止 =========
