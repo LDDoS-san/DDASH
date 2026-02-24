@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="DistanceCalcurate.js"></script>
 <script src="wbgt_risk_tuned.js"></script>
+<script src="heatstroke_inpatient_cost_sim.js"></script>
 
 <style>
 :root {
@@ -232,7 +233,8 @@ body {
 
 <!-- 下段（全部大きく） -->
 <div class="panel big-all">
-  後遺症あり
+  入院費（自己負担・概算）<br>
+  <span id="inpatientCost">--</span>円
 </div>
 
 <button id="startSimulationBtn">シミュレーション開始</button>
@@ -264,6 +266,7 @@ async function updateEtaFromMapCenter() {
     const minutes = Math.max(0, Math.round(r.minutes));
     const etaEl = document.getElementById('etaNum');
     if (etaEl) etaEl.textContent = String(minutes);
+    updateInpatientCostFromEtaMinutes(minutes);
 
     // ついでに必要ならコンソールに距離も
     // console.log('center', c.lat, c.lng, 'nearest', r.hospital?.name, r.distance_km, 'km');
@@ -271,6 +274,47 @@ async function updateEtaFromMapCenter() {
     console.error(e);
     const etaEl = document.getElementById('etaNum');
     if (etaEl) etaEl.textContent = '--';
+    updateInpatientCostFromEtaMinutes(roundedMin);
+  }
+}
+
+function formatYen(n) {
+  if (!Number.isFinite(n)) return "--";
+  return Math.round(n).toLocaleString("ja-JP");
+}
+
+function updateInpatientCostFromEtaMinutes(transportMin) {
+  try {
+    if (!window.heatstrokeInpatientCostSim?.simulateInpatientCost) return;
+
+    // 今回は「etaNum=搬送時間(分)」として扱う
+    // 救急車到着(現場到着)は固定で10分として仮置き（必要なら後で変えられます）
+    const ambulanceArrivalMin = 10;
+
+    // リスク計算結果が取れない場合もあるので、最低限は仮値で回す
+    const wbgt = 32;            // 仮（本当はWBGTリスク側から取るのが理想）
+    const age = 30;             // 仮
+    const waterIntakeMl = 500;  // 仮
+    const outingHours = 2;      // 仮
+    const mets = 1.2;           // 仮
+
+    const result = window.heatstrokeInpatientCostSim.simulateInpatientCost({
+      age,
+      wbgt,
+      waterIntakeMl,
+      outingHours,
+      mets,
+      ambulanceArrivalMin,
+      transportMin
+    });
+
+    const yen = result.expected.outOfPocketYen;
+    const el = document.getElementById("inpatientCost");
+    if (el) el.textContent = formatYen(yen);
+  } catch (e) {
+    console.error(e);
+    const el = document.getElementById("inpatientCost");
+    if (el) el.textContent = "--";
   }
 }
 
