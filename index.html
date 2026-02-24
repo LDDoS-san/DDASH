@@ -430,7 +430,7 @@ function buildDailyOopLines(result, days){
   const oopTotal = result?.expected?.outOfPocketYen;
   if (!Number.isFinite(oopTotal) || rawSum <= 0) {
     // 取れない/割れない場合は raw のまま返す
-    const lines = rawPerDay.map((yen, i) => `${i===0 ? "初日" : `${i+1}日目`}：${formatYen(yen)}円`);
+    const lines = rawPerDay.map((yen, i) => `${i===0 ? "入院初日" : `入院${i+1}日目`}：${formatYen(yen)}円`);
     //lines.push(`合計：${formatYen(rawSum)}円`);
     return lines;
   }
@@ -785,6 +785,24 @@ const hospitalLayer = L.layerGroup().addTo(map);
 const parkLayer = L.layerGroup().addTo(map); // 公園は最初ON
 const touristLayer = L.layerGroup().addTo(map); // 観光地レイヤー（最初ON）
 
+const hospitalIcon = L.icon({
+  iconUrl: "hospital.png",
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
+});
+
+const parkIcon = L.icon({
+  iconUrl: "park.png",
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
+});
+
+const touristIcon = L.icon({
+  iconUrl: "tourist.png",
+  iconSize: [24, 24],
+  iconAnchor: [12, 12]
+});
+
 // 凡例のチェックボックスで病院レイヤーON/OFF
 setTimeout(() => {
   const cb = document.getElementById('toggle-hospitals');
@@ -838,12 +856,9 @@ fetch("HospitalPlaceData.xlsx")
       const lat = parseFloat(String(row[10]).trim()); // K
       const lng = parseFloat(String(row[11]).trim()); // L
       if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-        // circleMarker にすると塗りの上でも見やすい（paneで最前面）
-        L.circleMarker([lat, lng], {
-          pane: 'markersPane',
-          radius: 6,
-          weight: 1,
-          fillOpacity: 0.9
+        L.marker([lat, lng], {
+          icon: hospitalIcon,
+          pane: 'markersPane'
         }).addTo(hospitalLayer);
         count++;
       }
@@ -878,13 +893,9 @@ fetch("HospitalPlaceData.xlsx")
 
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
-      L.circleMarker([lat, lng], {
-        pane: 'markersPane',
-        radius: 6,
-        weight: 1,
-        fillOpacity: 0.9,
-        color: "#2ecc71",
-        fillColor: "#2ecc71"
+      L.marker([lat, lng], {
+        icon: parkIcon,
+        pane: 'markersPane'
       }).addTo(parkLayer);
 
       count++;
@@ -918,14 +929,10 @@ fetch("HospitalPlaceData.xlsx")
 
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
-      const marker = L.circleMarker([lat, lng], {
-        pane: 'markersPane',
-        radius: 8,
-        weight: 1,
-        fillOpacity: 0.9,
-        color: "#ff69b4",
-        fillColor: "#ff69b4"
-      });
+      L.marker([lat, lng], {
+        icon: touristIcon,
+        pane: 'markersPane'
+      }).addTo(touristLayer);
 
       // ★ クリックで名前表示
       marker.bindPopup(name || "観光地");
