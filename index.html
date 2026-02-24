@@ -1131,13 +1131,18 @@ fetch("HospitalPlaceData.xlsx")
             `合計：${formatYen(oopTotal)}円`
           ]);
 
+          // ✅ コスト更新は「合計」の吹き出しが出るタイミングに合わせて遅らせる
+          const totalDelayMs = (messages.length - 1) * intervalMs;
+          setTimeout(() => {
+            const etaEl = document.getElementById("etaNum");
+            if (etaEl) etaEl.textContent = String(transportMin);
+
+            const costEl = document.getElementById("inpatientCost");
+            if (costEl) costEl.textContent = formatYen(oopTotal);
+
+          }, totalDelayMs);
           // ✅ ここで初めてサイドバー更新
-          const etaEl = document.getElementById("etaNum");
-          if (etaEl) etaEl.textContent = String(transportMin);
-
-          const costEl = document.getElementById("inpatientCost");
-          if (costEl) costEl.textContent = formatYen(oopTotal);
-
+          
           return; // 終了
         }
       }
