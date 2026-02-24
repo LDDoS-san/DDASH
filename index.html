@@ -372,13 +372,12 @@ function popAmbulanceMessages(ambulanceMarker, messages, intervalMs = 1200){
     }, i * intervalMs);
   });
 
-  // 最後の吹き出しが出る時間
-  const lastAppearTime = (messages.length - 1) * intervalMs;
+  // ✅ 最後の吹き出しが出終わってから3秒後に全部消す
+  const totalAppearTime = messages.length * intervalMs;
 
-  // 最後が表示されてから3秒後に消す
   setTimeout(() => {
     bubbles.forEach(b => b.remove());
-  }, lastAppearTime + 3000);
+  }, totalAppearTime + 3000);
 }
 
 function formatYen(n) {
@@ -456,7 +455,7 @@ function buildDailyOopLines(result, days){
   allocated[allocated.length - 1] += diff;
 
   const lines = allocated.map((yen, i) => `${i===0 ? "初日" : `${i+1}日目`}：${formatYen(yen)}円`);
-  //lines.push(`合計：${formatYen(oopTotal)}円`);
+  lines.push(`合計：${formatYen(oopTotal)}円`);
   return lines;
 }
 
