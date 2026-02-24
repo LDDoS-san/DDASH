@@ -186,13 +186,14 @@ body {
 
   opacity: 0;
   transform: translateY(14px);
-  animation: bubblePop 0.5s ease forwards; /* ← 表示時間長く */
+  animation: bubblePop 5s ease forwards; /* ← 表示時間長く */
 }
 
 @keyframes bubblePop{
   0%   { opacity: 0; transform: translateY(14px) scale(0.95); }
-  20%  { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  15%  { opacity: 1; transform: translateY(0) scale(1); }
+  85%  { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-12px) scale(1.05); }
 }
 
 /* スマホ用：サイドバーを上に */
