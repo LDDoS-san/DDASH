@@ -604,11 +604,11 @@ legend.onAdd = function() {
   var div = L.DomUtil.create('div', 'legend');
   div.innerHTML = `
     <div style="font-weight:700; margin-bottom:6px;">WBGT（屋外近似）</div>
-    <div class="row"><i style="background:${wbgtColor(32)}"></i>危険（31以上）</div>
-    <div class="row"><i style="background:${wbgtColor(29)}"></i>厳重警戒（28–30.9）</div>
-    <div class="row"><i style="background:${wbgtColor(26)}"></i>警戒（25–27.9）</div>
-    <div class="row"><i style="background:${wbgtColor(22)}"></i>注意（21–24.9）</div>
-    <div class="row"><i style="background:${wbgtColor(20)}"></i>ほぼ安全（〜20.9）</div>
+    <div class="row"><i style="background:${wbgtColor(32)}"></i>31-    </div>
+    <div class="row"><i style="background:${wbgtColor(29)}"></i>28–30.9</div>
+    <div class="row"><i style="background:${wbgtColor(26)}"></i>25–27.9</div>
+    <div class="row"><i style="background:${wbgtColor(22)}"></i>21–24.9</div>
+    <div class="row"><i style="background:${wbgtColor(20)}"></i>  -20.9</div>
     <div class="row"><i style="background:#cccccc"></i>データなし</div>
     <hr style="border:none; border-top:1px solid #ddd; margin:8px 0;">
 
@@ -921,22 +921,18 @@ fetch("HospitalPlaceData.xlsx")
 
     let count = 0;
     for (let i = 0; i < rows.length; i++) {
-
-      // ★ 公園と同じ列構造なら
       const lat = parseFloat(String(rows[i][1]).trim());
       const lng = parseFloat(String(rows[i][2]).trim());
       const name = String(rows[i][3]).trim();
 
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
-      L.marker([lat, lng], {
+      const marker = L.marker([lat, lng], {
         icon: touristIcon,
         pane: 'markersPane'
-      }).addTo(touristLayer);
+      });
 
-      // ★ クリックで名前表示
       marker.bindPopup(name || "観光地");
-
       marker.addTo(touristLayer);
 
       count++;
