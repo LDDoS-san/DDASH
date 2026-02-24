@@ -724,50 +724,68 @@ fetch("HospitalPlaceData.xlsx")
 
 
     // ===============================
-    // 🚑 救急車アニメーション（5秒）
+    // 🚑 救急車アニメーション（往復）
     // ===============================
 
-    // 既存の救急車があれば削除
-    if (ambulanceMarker) {
-      map.removeLayer(ambulanceMarker);
-    }
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId);
-    }
+    // 既存削除
+    if (ambulanceMarker) map.removeLayer(ambulanceMarker);
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
-    // ルート座標取得（OSRMは [lng, lat]）
+    // OSRM座標（[lat,lng]に変換）
     const coords = routeGeoJSON.coordinates.map(c => [c[1], c[0]]);
 
-    // 救急車アイコン
-    const ambulanceIcon = L.icon({
-      iconUrl: "ambulance.png",
-      iconSize: [60, 60],
-      iconAnchor: [30, 30]
-    });
+    // PNGやicon設定はそのままでOK
+    const duration = 5000;      // 片道5秒
+    const waitTime = 1000;      // ゴールで1秒停止
 
-    // 病院スタート（coordsの最後が病院）
+    // スタートは病院（最後）
     ambulanceMarker = L.marker(coords[coords.length - 1], {
       icon: ambulanceIcon
     }).addTo(map);
 
-    const duration = 5000; // 5秒
-    const startTime = performance.now();
+    let phase = "forward"; // forward → wait → backward
+    let startTime = performance.now();
 
     function animate(now) {
+
       const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
 
-      // ルートを逆方向に移動（病院 → ゴール）
-      const index = Math.floor((coords.length - 1) * (1 - progress));
-      ambulanceMarker.setLatLng(coords[index]);
+      // ========= 行き =========
+      if (phase === "forward") {
 
-      if (progress < 1) {
-        animationFrameId = requestAnimationFrame(animate);
+        const progress = Math.min(elapsed / duration, 1);
+        const index = Math.floor((coords.length - 1) * (1 - progress));
+        ambulanceMarker.setLatLng(coords[index]);
+
+        if (progress >= 1) {
+          phase = "wait";
+          startTime = now;
+        }
+
+      // ========= ゴールで停止 =========
+      } else if (phase === "wait") {
+
+        if (elapsed >= waitTime) {
+          phase = "backward";
+          startTime = now;
+        }
+
+      // ========= 帰り =========
+      } else if (phase === "backward") {
+
+        const progress = Math.min(elapsed / duration, 1);
+        const index = Math.floor((coords.length - 1) * progress);
+        ambulanceMarker.setLatLng(coords[index]);
+
+        if (progress >= 1) {
+          return; // 終了（ループさせたいならここを変える）
+        }
       }
+
+      animationFrameId = requestAnimationFrame(animate);
     }
 
     animationFrameId = requestAnimationFrame(animate);
-
 
         // ⑥ 地図をルート範囲にフィット（病院が範囲に入る）
         map.fitBounds(simulationRouteLayer.getBounds());
