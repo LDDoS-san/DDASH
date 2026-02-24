@@ -372,12 +372,13 @@ function popAmbulanceMessages(ambulanceMarker, messages, intervalMs = 1200){
     }, i * intervalMs);
   });
 
-  // ✅ 最後の吹き出しが出終わってから3秒後に全部消す
-  const totalAppearTime = messages.length * intervalMs;
+  // 最後の吹き出しが出る時間
+  const lastAppearTime = (messages.length - 1) * intervalMs;
 
+  // 最後が表示されてから3秒後に消す
   setTimeout(() => {
     bubbles.forEach(b => b.remove());
-  }, totalAppearTime + 3000);
+  }, lastAppearTime + 3000);
 }
 
 function formatYen(n) {
