@@ -1125,19 +1125,18 @@ fetch("HospitalPlaceData.xlsx")
 
           const oopTotal = r?.expected?.outOfPocketYen;
 
+          popAmbulanceMessages(ambulanceMarker, [
+            ...dailyOopLines,                 // 1日目〜
+            `入院：${los ?? "--"}日`,
+            `合計：${formatYen(oopTotal)}円`
+          ]);
+
           // ✅ ここで初めてサイドバー更新
           const etaEl = document.getElementById("etaNum");
           if (etaEl) etaEl.textContent = String(transportMin);
 
           const costEl = document.getElementById("inpatientCost");
           if (costEl) costEl.textContent = formatYen(oopTotal);
-
-
-          popAmbulanceMessages(ambulanceMarker, [
-            ...dailyOopLines,                 // 1日目〜
-            `入院：${los ?? "--"}日`,
-            `合計：${formatYen(oopTotal)}円`
-          ]);
 
           return; // 終了
         }
