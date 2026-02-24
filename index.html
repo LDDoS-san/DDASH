@@ -821,13 +821,8 @@ function makeClusterLayer(hexColor, disableZoom = 14, radius = 60) {
 
 // 色は「元の凡例」に合わせておく（変えたければここだけ）
 const hospitalLayer = makeClusterLayer("#3388ff", 13, 60); // 青
-const parkLayer     = makeClusterLayer("#2ecc71", 13, 60); // 緑
+const parkLayer     = makeClusterLayer("#2ecc71", 14, 60); // 緑
 const touristLayer  = makeClusterLayer("#ff69b4", 13, 60); // ピンク
-
-hospitalLayer.addTo(map);
-parkLayer.addTo(map);
-touristLayer.addTo(map);
-
 
 
 const hospitalIcon = L.icon({
@@ -850,34 +845,22 @@ const touristIcon = L.icon({
 
 // 凡例のチェックボックスで病院レイヤーON/OFF
 setTimeout(() => {
-  const cb = document.getElementById('toggle-hospitals');
-  if (!cb) return;
+  function bindToggle(id, layer) {
+    const cb = document.getElementById(id);
+    if (!cb) return;
 
-  cb.addEventListener('change', () => {
-    if (cb.checked) {
-      hospitalLayer.addTo(map);
-    } else {
-      map.removeLayer(hospitalLayer);
+    function update() {
+      if (cb.checked) layer.addTo(map);
+      else map.removeLayer(layer);
     }
-  });
-}, 0);
 
-setTimeout(() => {
-  const cb = document.getElementById('toggle-parks');
-  if (!cb) return;
-  cb.addEventListener('change', () => {
-    if (cb.checked) parkLayer.addTo(map);
-    else map.removeLayer(parkLayer);
-  });
-}, 0);
+    cb.addEventListener('change', update);
+    update(); // ★ 初期状態も反映
+  }
 
-setTimeout(() => {
-  const cb = document.getElementById('toggle-tourist');
-  if (!cb) return;
-  cb.addEventListener('change', () => {
-    if (cb.checked) touristLayer.addTo(map);
-    else map.removeLayer(touristLayer);
-  });
+  bindToggle('toggle-hospitals', hospitalLayer);
+  bindToggle('toggle-parks', parkLayer);
+  bindToggle('toggle-tourist', touristLayer);
 }, 0);
 
 fetch("HospitalPlaceData.xlsx")
@@ -901,10 +884,11 @@ fetch("HospitalPlaceData.xlsx")
       const lat = parseFloat(String(row[10]).trim()); // K
       const lng = parseFloat(String(row[11]).trim()); // L
       if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-        L.marker([lat, lng], {
+        const marker = L.marker([lat, lng], {
           icon: hospitalIcon,
           pane: 'markersPane'
-        }).addTo(hospitalLayer);
+        });
+        hospitalLayer.addLayer(marker);
         count++;
       }
     }
@@ -938,10 +922,11 @@ fetch("HospitalPlaceData.xlsx")
 
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
-      L.marker([lat, lng], {
+      const marker = L.marker([lat, lng], {
         icon: parkIcon,
         pane: 'markersPane'
-      }).addTo(parkLayer);
+      });
+      parkLayer.addLayer(marker);
 
       count++;
     }
@@ -976,9 +961,8 @@ fetch("HospitalPlaceData.xlsx")
         icon: touristIcon,
         pane: 'markersPane'
       });
-
       marker.bindPopup(name || "観光地");
-      marker.addTo(touristLayer);
+      touristLayer.addLayer(marker);
 
       count++;
     }
