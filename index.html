@@ -618,7 +618,7 @@ legend.onAdd = function() {
     <div class="row">
       <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
         <input id="toggle-hospitals" type="checkbox" checked>
-        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3388ff;"></span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#D32F2F;"></span>
         病院
       </label>
     </div>
@@ -633,7 +633,7 @@ legend.onAdd = function() {
     <div class="row">
       <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
         <input id="toggle-tourist" type="checkbox" checked>
-        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff69b4;"></span>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#8E24AA;"></span>
         観光地
       </label>
     </div>  `;
@@ -820,9 +820,9 @@ function makeClusterLayer(hexColor, disableZoom = 14, radius = 60) {
 }
 
 // 色は「元の凡例」に合わせておく（変えたければここだけ）
-const hospitalLayer = makeClusterLayer("#3388ff", 13, 60); // 青
+const hospitalLayer = makeClusterLayer("#D32F2F", 13, 60); // 青
 const parkLayer     = makeClusterLayer("#2ecc71", 15, 60); // 緑
-const touristLayer  = makeClusterLayer("#ff69b4", 13, 60); // ピンク
+const touristLayer  = makeClusterLayer("#8E24AA", 13, 60); // ピンク
 
 
 const hospitalIcon = L.icon({
