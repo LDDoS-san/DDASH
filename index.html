@@ -1122,6 +1122,9 @@ fetch("HospitalPlaceData.xlsx")
 
         const dailyOopLines = buildDailyOopLines(r, daysToShow);
         const oopTotal = r?.expected?.outOfPocketYen;
+        
+        const etaEl = document.getElementById("etaNum");
+        if (etaEl) etaEl.textContent = String(transportMin);
 
         // ここでちゃんと変数として messages / intervalMs を作る
         const intervalMs = 1500;
@@ -1137,9 +1140,6 @@ fetch("HospitalPlaceData.xlsx")
         const totalDelayMs = (messages.length - 1) * intervalMs;
 
         setTimeout(() => {
-          const etaEl = document.getElementById("etaNum");
-          if (etaEl) etaEl.textContent = String(transportMin);
-
           const costEl = document.getElementById("inpatientCost");
           if (costEl) costEl.textContent = formatYen(oopTotal);
         }, totalDelayMs);
