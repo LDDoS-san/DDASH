@@ -10,6 +10,9 @@
 <script src="DistanceCalcurate.js"></script>
 <script src="wbgt_risk_tuned.js"></script>
 <script src="heatstroke_inpatient_cost_sim_detailed.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 <style>
 :root {
   --sidebar-w: 320px;
@@ -782,7 +785,14 @@ fetch("kyoto_municipalities.geojson")
 
 /** ---------- Hospitals (H=26 only) ---------- */
 const hospitalLayer = L.layerGroup().addTo(map);
-const parkLayer = L.layerGroup().addTo(map); // 公園は最初ON
+const parkLayer = L.markerClusterGroup({
+  // ここが「拡大したら全部出す」の境目
+  disableClusteringAtZoom: 16,  // 例: ズーム16以上でクラスタ解除して全表示
+  chunkedLoading: true,         // 大量でも固まりにくい
+  spiderfyOnMaxZoom: true,
+  showCoverageOnHover: false
+});
+parkLayer.addTo(map);
 const touristLayer = L.layerGroup().addTo(map); // 観光地レイヤー（最初ON）
 
 const hospitalIcon = L.icon({
