@@ -186,7 +186,7 @@ body {
 
   opacity: 0;
   transform: translateY(14px);
-  animation: bubblePop 3.5s ease forwards; /* ← 表示時間長く */
+  animation: bubblePop 5s ease forwards; /* ← 表示時間長く */
 }
 
 @keyframes bubblePop{
@@ -352,7 +352,7 @@ function expectedLosDays(result){
   return Math.round(v);
 }
 
-function popAmbulanceMessages(ambulanceMarker, messages, intervalMs = 650){
+function popAmbulanceMessages(ambulanceMarker, messages, intervalMs = 1500){
   const el = ambulanceMarker?.getElement?.();
   if (!el) return;
 
@@ -368,7 +368,7 @@ function popAmbulanceMessages(ambulanceMarker, messages, intervalMs = 650){
       b.textContent = msg;
       container.appendChild(b);
 
-      setTimeout(() => b.remove(), 2000);
+      setTimeout(() => b.remove(), 5000);
     }, i * intervalMs);
   });
 }
@@ -430,7 +430,7 @@ function buildDailyOopLines(result, days){
   if (!Number.isFinite(oopTotal) || rawSum <= 0) {
     // 取れない/割れない場合は raw のまま返す
     const lines = rawPerDay.map((yen, i) => `${i===0 ? "初日" : `${i+1}日目`}：${formatYen(yen)}円`);
-    lines.push(`合計：${formatYen(rawSum)}円`);
+    //lines.push(`合計：${formatYen(rawSum)}円`);
     return lines;
   }
 
@@ -1112,10 +1112,12 @@ fetch("HospitalPlaceData.xlsx")
           // 参考で「3割合計（上限前）」も出したい場合
           // const rawTotal = pickOopExpected(r, "raw_copay");
 
+          const oopTotal = r?.expected?.outOfPocketYen;
+
           popAmbulanceMessages(ambulanceMarker, [
+            ...dailyOopLines,                 // 1日目〜
             `入院：${los ?? "--"}日`,
-            ...dailyOopLines
-            // `（参考）3割合計：${formatYen(rawTotal)}円`
+            `合計：${formatYen(oopTotal)}円`
           ]);
 
           return; // 終了
