@@ -1047,6 +1047,11 @@ fetch("HospitalPlaceData.xlsx")
     // OSRM座標（[lat,lng]に変換）
     const coords = routeGeoJSON.coordinates.map(c => [c[1], c[0]]);
 
+    if (!coords || coords.length < 2) {
+      alert("ルート座標が不足しています");
+      return;
+    }
+
     // PNGやicon設定はそのままでOK
     const duration = 5000;      // 片道5秒
     const waitTime = 1000;      // ゴールで1秒停止
