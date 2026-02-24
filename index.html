@@ -283,33 +283,31 @@ function maxWbgtAtIdx(idx) {
   return max;
 }
 
-function updateRiskFromMapCenter() {
+async function updateRiskFromMapCenter() {
   try {
-    if (!window.RiskLib) return;
-
     const c = map.getCenter();
-    const idx = RiskLib.nearestGridIndex(c.lat, c.lng); // 地点ナンバー（配列index）:contentReference[oaicite:5]{index=5}
 
-    const wbgt = maxWbgtAtIdx(idx);
+    const result = await WBGTRiskTuned.getRiskAt({
+      lat: c.lat,
+      lon: c.lng,
+      day: "2025-08-01",
+      hour: 14,
+      mode: "outdoor",
+      age: 30,
+      met: 4.0,
+      water_ml_last2h: 0
+    });
 
-    // ひとまず固定パラメータ（必要ならsettings.htmlから渡す）
-    const age = 30;
-    const met = 4.0;
-    const water = 0;
+    document.getElementById("riskNum").textContent =
+      result.risk.score;
 
-    const [score, level] = RiskLib.riskScoreFromWbgtFine(wbgt, age, met, water); // :contentReference[oaicite:6]{index=6}
+    document.getElementById("riskLevel").textContent =
+      result.risk.level;
 
-    const riskEl = document.getElementById('riskNum');
-    const levelEl = document.getElementById('riskLevel');
-    if (riskEl) riskEl.textContent = String(score);
-    if (levelEl) levelEl.textContent = level;
+    console.log(result);
 
   } catch (e) {
     console.error(e);
-    const riskEl = document.getElementById('riskNum');
-    const levelEl = document.getElementById('riskLevel');
-    if (riskEl) riskEl.textContent = '--';
-    if (levelEl) levelEl.textContent = '--';
   }
 }
 
