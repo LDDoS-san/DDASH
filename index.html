@@ -352,7 +352,7 @@ function expectedLosDays(result){
   return Math.round(v);
 }
 
-function popAmbulanceMessages(ambulanceMarker, messages, intervalMs = 1200){
+function popAmbulanceMessages(ambulanceMarker, messages, intervalMs = 1500){
   const el = ambulanceMarker?.getElement?.();
   if (!el) return;
 
@@ -361,24 +361,16 @@ function popAmbulanceMessages(ambulanceMarker, messages, intervalMs = 1200){
 
   container.innerHTML = "";
 
-  const bubbles = [];
-
   messages.forEach((msg, i) => {
     setTimeout(() => {
       const b = document.createElement("div");
       b.className = "ambulance-bubble";
       b.textContent = msg;
       container.appendChild(b);
-      bubbles.push(b);
+
+      setTimeout(() => b.remove(), 5000);
     }, i * intervalMs);
   });
-
-  // ✅ 最後の吹き出しが出終わってから3秒後に全部消す
-  const totalAppearTime = messages.length * intervalMs;
-
-  setTimeout(() => {
-    bubbles.forEach(b => b.remove());
-  }, totalAppearTime + 3000);
 }
 
 function formatYen(n) {
