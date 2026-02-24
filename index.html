@@ -942,19 +942,8 @@ fetch("HospitalPlaceData.xlsx")
         ambulanceMarker.setLatLng(coords[index]);
 
         if (progress >= 1) {
-          // ✅ 病院に戻った瞬間：入院日数/入院費をポンポン表示
-          const transportMin = Number(document.getElementById("etaNum")?.textContent) || 0;
-          const r = computeInpatientCostResult(transportMin);
-
-          const los = expectedLosDays(r);
-          const oop = r?.expected?.outOfPocketYen;
-
-          popAmbulanceMessages(ambulanceMarker, [
-            `入院：${los ?? "--"}日`,
-            `入院費：${formatYen(oop)}円`
-          ]);
-
-          return; // 終了
+          phase = "wait";
+          startTime = now;
         }
 
       // ========= ゴールで停止 =========
@@ -973,7 +962,19 @@ fetch("HospitalPlaceData.xlsx")
         ambulanceMarker.setLatLng(coords[index]);
 
         if (progress >= 1) {
-          return; // 終了（ループさせたいならここを変える）
+          // ✅ 病院に戻った瞬間：入院日数/入院費をポンポン表示
+          const transportMin = Number(document.getElementById("etaNum")?.textContent) || 0;
+          const r = computeInpatientCostResult(transportMin);
+
+          const los = expectedLosDays(r);
+          const oop = r?.expected?.outOfPocketYen;
+
+          popAmbulanceMessages(ambulanceMarker, [
+            `入院：${los ?? "--"}日`,
+            `入院費：${formatYen(oop)}円`
+          ]);
+
+          return; // 終了
         }
       }
 
