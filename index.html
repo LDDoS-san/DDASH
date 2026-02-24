@@ -291,6 +291,7 @@ let simulationRunning = false;
 let ambulanceMarker = null;
 let animationFrameId = null;
 let simulationRouteLayer = null;
+let pendingTransportMin = null;
 /** ---------- Map ---------- */
 var map = L.map('map');
 // 病院CSVを1回だけ読み込み（hospital.js側のデフォルトCSV名を使用）
@@ -1014,12 +1015,13 @@ fetch("HospitalPlaceData.xlsx")
 
     // 四捨五入
     const roundedMin = Math.round(durationMin);
+    pendingTransportMin = roundedMin;
 
     // サイドバー更新
-    const etaEl = document.getElementById("etaNum");
-    if (etaEl) etaEl.textContent = roundedMin;
+    //const etaEl = document.getElementById("etaNum");
+    //if (etaEl) etaEl.textContent = roundedMin;
 
-    updateInpatientCostFromEtaMinutes(roundedMin);
+    //updateInpatientCostFromEtaMinutes(roundedMin);
 
     // （必要なら距離も表示したい場合）
     console.log("距離:", distanceKm.toFixed(2), "km");
@@ -1122,6 +1124,14 @@ fetch("HospitalPlaceData.xlsx")
           // const rawTotal = pickOopExpected(r, "raw_copay");
 
           const oopTotal = r?.expected?.outOfPocketYen;
+
+          // ✅ ここで初めてサイドバー更新
+          const etaEl = document.getElementById("etaNum");
+          if (etaEl) etaEl.textContent = String(transportMin);
+
+          const costEl = document.getElementById("inpatientCost");
+          if (costEl) costEl.textContent = formatYen(oopTotal);
+
 
           popAmbulanceMessages(ambulanceMarker, [
             ...dailyOopLines,                 // 1日目〜
