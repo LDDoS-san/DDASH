@@ -1136,8 +1136,8 @@ fetch("HospitalPlaceData.xlsx")
     // ⑥ 地図をルート範囲にフィット（病院が範囲に入る）
     map.fitBounds(simulationRouteLayer.getBounds(), {
       paddingTopLeft: [20, 20],
-      paddingBottomRight: [20, 350],
-      paddingBottomLeft: [50, 350]  // ← ここを大きくすると左下に余白
+      paddingBottomRight: [20, 250],
+      paddingBottomLeft: [50, 250]  // ← ここを大きくすると左下に余白
     });
     // デバッグ用（任意）
     console.log(`Nearest hospital: ${h.name}`, result);
