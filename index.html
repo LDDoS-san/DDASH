@@ -232,8 +232,8 @@ body {
 </div>
 
 <!-- 下段（全部大きく） -->
-<div class="panel big-all">
-  入院費（自己負担・概算）<br>
+<div class="panel">
+  <div class="label">入院費（概算）</div>
   <span id="inpatientCost">--</span>円
 </div>
 
@@ -836,6 +836,8 @@ fetch("HospitalPlaceData.xlsx")
     // サイドバー更新
     const etaEl = document.getElementById("etaNum");
     if (etaEl) etaEl.textContent = roundedMin;
+
+    updateInpatientCostFromEtaMinutes(roundedMin);
 
     // （必要なら距離も表示したい場合）
     console.log("距離:", distanceKm.toFixed(2), "km");
