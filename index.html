@@ -1111,40 +1111,41 @@ fetch("HospitalPlaceData.xlsx")
         ambulanceMarker.setLatLng(coords[index]);
 
         if (progress >= 1) {
-          // ✅ 病院に戻った瞬間：入院日数/入院費をポンポン表示
-          const transportMin = Number(document.getElementById("etaNum")?.textContent) || 0;
-          const r = computeInpatientCostResult(transportMin);
+        // ✅ 病院に戻った瞬間：入院日数/入院費をポンポン表示
 
-          const los = expectedLosDays(r);
-          const daysToShow = Math.max(1, Math.min(10, Number.isFinite(los) ? los : 5)); // 表示は最大10日（好みで調整）
+        // シミュで計算した搬送時間を使う（etaNumはシミュ中更新してないため）
+        const transportMin = Number.isFinite(pendingTransportMin) ? pendingTransportMin : 0;
 
-          const dailyOopLines = buildDailyOopLines(r, daysToShow);
+        const r = computeInpatientCostResult(transportMin);
+        const los = expectedLosDays(r);
+        const daysToShow = Math.max(1, Math.min(10, Number.isFinite(los) ? los : 5));
 
-          // 参考で「3割合計（上限前）」も出したい場合
-          // const rawTotal = pickOopExpected(r, "raw_copay");
+        const dailyOopLines = buildDailyOopLines(r, daysToShow);
+        const oopTotal = r?.expected?.outOfPocketYen;
 
-          const oopTotal = r?.expected?.outOfPocketYen;
+        // ここでちゃんと変数として messages / intervalMs を作る
+        const intervalMs = 1500;
+        const messages = [
+          ...dailyOopLines,
+          `入院：${los ?? "--"}日`,
+          `合計：${formatYen(oopTotal)}円`
+        ];
 
-          popAmbulanceMessages(ambulanceMarker, [
-            ...dailyOopLines,                 // 1日目〜
-            `入院：${los ?? "--"}日`,
-            `合計：${formatYen(oopTotal)}円`
-          ]);
+        popAmbulanceMessages(ambulanceMarker, messages, intervalMs);
 
-          // ✅ コスト更新は「合計」の吹き出しが出るタイミングに合わせて遅らせる
-          const totalDelayMs = (messages.length - 1) * intervalMs;
-          setTimeout(() => {
-            const etaEl = document.getElementById("etaNum");
-            if (etaEl) etaEl.textContent = String(transportMin);
+        // ✅ 「合計」吹き出しが出たタイミングでサイドバー更新
+        const totalDelayMs = (messages.length - 1) * intervalMs;
 
-            const costEl = document.getElementById("inpatientCost");
-            if (costEl) costEl.textContent = formatYen(oopTotal);
+        setTimeout(() => {
+          const etaEl = document.getElementById("etaNum");
+          if (etaEl) etaEl.textContent = String(transportMin);
 
-          }, totalDelayMs);
-          // ✅ ここで初めてサイドバー更新
-          
-          return; // 終了
-        }
+          const costEl = document.getElementById("inpatientCost");
+          if (costEl) costEl.textContent = formatYen(oopTotal);
+        }, totalDelayMs);
+
+        return; // 終了
+      }
       }
 
       animationFrameId = requestAnimationFrame(animate);
