@@ -599,51 +599,57 @@ fetch("HospitalPlaceData.xlsx")
 
 
   document.getElementById("startSimulationBtn").addEventListener("click", async () => {
-    
-    // ① 地図中心（十字の位置）を取得
+  try {
+    // ① 十字（地図中心）を取得
     const center = map.getCenter();
     const startLat = center.lat;
-    const startLng = center.lng;
+    const startLon = center.lng; // Leafletはlngだが、HospitalLibはlon引数なので変数名だけlonにしてる
 
-    // ② 最寄り病院を取得
-    const nearestHospital = HospitalLib.estimateTimeToNearestHospital(startLat, startLng);
+    // ② 最寄り病院を取得（hospital.jsの戻り値形式に対応）
+    const result = HospitalLib.estimateTimeToNearestHospital(startLat, startLon);
+    const h = result.hospital;
 
-    if (!nearestHospital) {
-        alert("最寄り病院が見つかりません");
-        return;
+    if (!h) {
+      alert("最寄り病院が見つかりません");
+      return;
     }
 
-    const hospitalLat = nearestHospital.lat || nearestHospital.latitude;
-    const hospitalLng = nearestHospital.lng || nearestHospital.longitude;
+    const hospitalLat = h.lat;
+    const hospitalLon = h.lon;
 
-    // ③ OSRMでルート取得
-    const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${hospitalLng},${hospitalLat}?overview=full&geometries=geojson`;
+    // ③ OSRMでルート取得（driving）
+    const url = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${hospitalLon},${hospitalLat}?overview=full&geometries=geojson`;
 
     const response = await fetch(url);
     const data = await response.json();
 
     if (!data.routes || data.routes.length === 0) {
-        alert("ルート取得失敗");
-        return;
+      alert("ルート取得失敗");
+      return;
     }
 
     const routeGeoJSON = data.routes[0].geometry;
 
     // ④ 既存ルート削除
     if (simulationRouteLayer) {
-        map.removeLayer(simulationRouteLayer);
+      map.removeLayer(simulationRouteLayer);
     }
 
     // ⑤ ルート描画
     simulationRouteLayer = L.geoJSON(routeGeoJSON, {
-        style: {
-            color: "red",
-            weight: 5
-        }
+      style: { color: "red", weight: 5 }
     }).addTo(map);
 
-    // ⑥ 地図をルート範囲にフィット
+    // ⑥ 地図をルート範囲にフィット（病院が範囲に入る）
     map.fitBounds(simulationRouteLayer.getBounds());
+
+    // デバッグ用（任意）
+    console.log(`Nearest hospital: ${h.name}`, result);
+
+  } catch (e) {
+    console.error(e);
+    alert(e.message || "シミュレーション開始に失敗しました");
+  }
 });
 </script>
 </body>
