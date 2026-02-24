@@ -559,6 +559,9 @@ map.getPane('polygonsPane').style.zIndex = 400;
 map.createPane('markersPane');
 map.getPane('markersPane').style.zIndex = 650; // markerPane(600)より上
 
+map.createPane('ambulancePane');
+map.getPane('ambulancePane').style.zIndex = 800; // markersPane(650)より上に
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
@@ -1062,7 +1065,8 @@ fetch("HospitalPlaceData.xlsx")
     });
 
     ambulanceMarker = L.marker(coords[coords.length - 1], {
-      icon: ambulanceIcon
+      icon: ambulanceIcon,
+      pane: 'ambulancePane'
     }).addTo(map);
 
     let phase = "forward"; // forward → wait → backward
@@ -1130,8 +1134,11 @@ fetch("HospitalPlaceData.xlsx")
     animationFrameId = requestAnimationFrame(animate);
 
     // ⑥ 地図をルート範囲にフィット（病院が範囲に入る）
-    map.fitBounds(simulationRouteLayer.getBounds());
-
+    map.fitBounds(polyline.getBounds(), {
+      paddingTopLeft: [20, 20],
+      paddingBottomRight: [20, 20],
+      paddingBottomLeft: [80, 120]  // ← ここを大きくすると左下に余白
+    });
     // デバッグ用（任意）
     console.log(`Nearest hospital: ${h.name}`, result);
 
