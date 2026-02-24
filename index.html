@@ -242,6 +242,7 @@ body {
 
 
 <script>
+let simulationRunning = false;
 let ambulanceMarker = null;
 let animationFrameId = null;
 let simulationRouteLayer = null;
@@ -311,10 +312,13 @@ async function updateRiskFromMapCenter() {
   }
 }
 
-map.on('moveend zoomend', () => {
+function onMapMoveOrZoom() {
+  if (simulationRunning) return; // ← シミュ中は更新しない
   updateEtaFromMapCenter();
   updateRiskFromMapCenter();
-});
+}
+
+map.on('moveend zoomend', onMapMoveOrZoom);
 
 // 初回
 setTimeout(() => {
@@ -712,7 +716,19 @@ fetch("HospitalPlaceData.xlsx")
   });
 
   document.getElementById("startSimulationBtn").addEventListener("click", async () => {
-  try {
+  
+    // すでに開始中なら → リセットして元に戻す
+  if (simulationRunning) {
+    resetSimulation();
+    document.getElementById("startSimulationBtn").textContent = "シミュレーション開始";
+    return;
+  }
+
+  // ここから開始
+  simulationRunning = true;
+  document.getElementById("startSimulationBtn").textContent = "リセット";
+  
+    try {
     // ① 十字（地図中心）を取得
     const center = map.getCenter();
     const startLat = center.lat;
@@ -862,17 +878,44 @@ fetch("HospitalPlaceData.xlsx")
 
     animationFrameId = requestAnimationFrame(animate);
 
-        // ⑥ 地図をルート範囲にフィット（病院が範囲に入る）
-        map.fitBounds(simulationRouteLayer.getBounds());
+    // ⑥ 地図をルート範囲にフィット（病院が範囲に入る）
+    map.fitBounds(simulationRouteLayer.getBounds());
 
-        // デバッグ用（任意）
-        console.log(`Nearest hospital: ${h.name}`, result);
+    // デバッグ用（任意）
+    console.log(`Nearest hospital: ${h.name}`, result);
 
-      } catch (e) {
-        console.error(e);
-        alert(e.message || "シミュレーション開始に失敗しました");
-      }
-    });
+  } catch (e) {
+    console.error(e);
+    alert(e.message || "シミュレーション開始に失敗しました");
+  }
+});
+
+function resetSimulation() {
+  // 状態を戻す
+  simulationRunning = false;
+
+  // ルート削除
+  if (simulationRouteLayer) {
+    map.removeLayer(simulationRouteLayer);
+    simulationRouteLayer = null;
+  }
+
+  // 救急車削除
+  if (ambulanceMarker) {
+    map.removeLayer(ambulanceMarker);
+    ambulanceMarker = null;
+  }
+
+  // アニメ停止
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+
+  // サイドバーを「元のロジック」で更新
+  updateEtaFromMapCenter();
+  updateRiskFromMapCenter();
+}
 
 function parseCSVLine(line) {
   const out = [];
