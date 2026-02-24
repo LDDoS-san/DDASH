@@ -1280,6 +1280,46 @@ function loadHeatProfile() {
     return null;
   }
 }
+
+function moveSimButtonForMobile() {
+  const btn = document.getElementById("startSimulationBtn");
+  if (!btn) return;
+
+  const isMobile = window.innerWidth <= 768;
+
+  if (isMobile) {
+    // 右上コントロールエリアを取得
+    const controlTopRight = document.querySelector(
+      ".leaflet-top.leaflet-right"
+    );
+    if (!controlTopRight) return;
+
+    // まだ移動していないときだけ移動
+    if (!btn.classList.contains("moved-to-map")) {
+      controlTopRight.prepend(btn);
+      btn.classList.add("moved-to-map");
+      btn.style.marginRight = "8px"; // Settingsとの間隔
+    }
+
+  } else {
+    // PCに戻ったらサイドバーに戻す
+    const sidebar = document.querySelector(".sidebar");
+    if (!sidebar) return;
+
+    if (btn.classList.contains("moved-to-map")) {
+      sidebar.appendChild(btn);
+      btn.classList.remove("moved-to-map");
+      btn.style.marginRight = "";
+    }
+  }
+}
+
+// 初期実行
+setTimeout(moveSimButtonForMobile, 300);
+
+// 画面サイズ変更時にも対応
+window.addEventListener("resize", moveSimButtonForMobile);
+
 </script>
 </body>
 </html>
