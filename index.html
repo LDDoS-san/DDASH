@@ -151,6 +151,39 @@ body {
 }
 
 
+/* シミュレーションログ（凡例の上に出す） */
+.sim-log {
+  background: rgba(255,255,255,0.95);
+  padding: 10px 12px;
+  border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.2);
+  font: 13px/1.35 sans-serif;
+  max-width: 260px;
+}
+.sim-log .title { font-weight: 700; margin-bottom: 6px; }
+.sim-log .lines { max-height: 140px; overflow: auto; white-space: pre-wrap; }
+.sim-log .totals { margin-top: 8px; padding-top: 8px; border-top: 1px solid #ddd; font-weight: 700; }
+.sim-log .muted { opacity: 0.75; font-weight: 400; }
+
+.leaflet-control-sim-btn{
+  display: inline-block;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-decoration: none;
+  color: #000;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.2);
+  font: 14px/1 sans-serif;
+  margin-left: 8px; /* Settingsボタンの右に並べる */
+}
+.leaflet-control-sim-btn:hover{ background:#f5f5f5; }
+.leaflet-control-sim-btn[aria-disabled="true"]{
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+
 
 /* スマホ用：サイドバーを上に */
 @media (max-width: 768px) {
@@ -357,6 +390,257 @@ const SettingsControl = L.Control.extend({
   }
 });
 map.addControl(new SettingsControl());
+
+
+
+/** ---------- Simulation UI (log above legend) ---------- */
+let simTotals = { stayHours: 0, costYen: 0 };
+let simLines = [];
+let simRunning = false;
+
+function yen(n){ return new Intl.NumberFormat('ja-JP').format(Math.round(n)); }
+
+function addSimLine(text){
+  const ts = new Date();
+  const hh = String(ts.getHours()).padStart(2,'0');
+  const mm = String(ts.getMinutes()).padStart(2,'0');
+  simLines.unshift(`[${hh}:${mm}] ${text}`);
+  renderSimLog();
+}
+
+let simLogControlEl = null;
+
+const SimLogControl = L.Control.extend({
+  options: { position: 'bottomright' }, // 凡例と同じ。DOM順で「後からaddToした方が上」に出る
+  onAdd: function(){
+    const div = L.DomUtil.create('div', 'sim-log');
+    div.innerHTML = `
+      <div class="title">シミュレーション</div>
+      <div class="lines muted">未開始</div>
+      <div class="totals muted">合計: --</div>
+    `;
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
+    simLogControlEl = div;
+    return div;
+  }
+});
+map.addControl(new SimLogControl());
+
+
+
+function renderSimLog(){
+  if (!simLogControlEl) return;
+  const linesEl = simLogControlEl.querySelector('.lines');
+  const totalsEl = simLogControlEl.querySelector('.totals');
+
+  linesEl.classList.remove('muted');
+  linesEl.textContent = simLines.length ? simLines.join('\n') : '—';
+
+  totalsEl.classList.remove('muted');
+  totalsEl.textContent = `合計: 入院 ${simTotals.stayHours}時間 / 費用 ${yen(simTotals.costYen)}円`;
+}
+
+/** ---------- Simulation button (topright, next to Settings) ---------- */
+let simBtnEl = null;
+
+const SimulationControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd: function(){
+    const container = L.DomUtil.create('div', 'leaflet-control-settings'); // 同じ見た目に寄せる
+    const btn = L.DomUtil.create('a', 'leaflet-control-sim-btn', container);
+    btn.href = '#';
+    btn.textContent = 'シミュレーション開始';
+    btn.setAttribute('role', 'button');
+    btn.setAttribute('aria-disabled', 'false');
+
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+
+    simBtnEl = btn;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      startSimulation().catch(err => {
+        console.error(err);
+        addSimLine(`エラー: ${err.message}`);
+        setSimButtonEnabled(true);
+        simRunning = false;
+      });
+    });
+    return container;
+  }
+});
+map.addControl(new SimulationControl());
+
+function setSimButtonEnabled(enabled){
+  if (!simBtnEl) return;
+  simBtnEl.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+}
+
+/** ---------- Ambulance marker + route layer ---------- */
+const simLayer = L.layerGroup().addTo(map);
+let ambulanceMarker = null;
+let routeLine = null;
+
+const ambulanceIcon = L.divIcon({
+  className: '',
+  html: `<div style="
+      width:18px;height:18px;border-radius:50%;
+      background:#d00; border:2px solid #fff;
+      box-shadow:0 1px 6px rgba(0,0,0,0.35);
+    " title="救急車"></div>`,
+  iconSize: [18,18],
+  iconAnchor: [9,9]
+});
+
+// 道路ルート取得（OSRM）
+async function fetchRouteOSRM(fromLatLng, toLatLng){
+  const a = fromLatLng, b = toLatLng;
+  const url = `https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`;
+  const res = await fetchWithTimeout(url, 10000);
+  if (!res.ok) throw new Error(`ルート取得失敗 HTTP ${res.status}`);
+  const j = await res.json();
+  const coords = j?.routes?.[0]?.geometry?.coordinates;
+  if (!coords || !coords.length) throw new Error('ルートが取得できませんでした');
+  // [lng,lat] -> [lat,lng]
+  return coords.map(c => [c[1], c[0]]);
+}
+
+// ルートに沿ってマーカーを動かす
+function animateAlong(latlngs, seconds){
+  return new Promise((resolve) => {
+    const pts = latlngs.map(([lat,lng]) => L.latLng(lat,lng));
+    if (!ambulanceMarker) {
+      ambulanceMarker = L.marker(pts[0], { icon: ambulanceIcon, pane:'markersPane' }).addTo(simLayer);
+    } else {
+      ambulanceMarker.setLatLng(pts[0]);
+      ambulanceMarker.addTo(simLayer);
+    }
+
+    const start = performance.now();
+    const dur = Math.max(1, seconds) * 1000;
+
+    // 累積距離で等速にする
+    const segLen = [];
+    let total = 0;
+    for (let i=1;i<pts.length;i++){
+      const d = map.distance(pts[i-1], pts[i]);
+      segLen.push(d);
+      total += d;
+    }
+    if (total <= 0) { resolve(); return; }
+
+    function step(now){
+      const t = Math.min(1, (now - start) / dur);
+      const target = total * t;
+
+      let acc = 0;
+      let idx = 0;
+      while (idx < segLen.length && acc + segLen[idx] < target) {
+        acc += segLen[idx];
+        idx++;
+      }
+
+      if (idx >= segLen.length) {
+        ambulanceMarker.setLatLng(pts[pts.length-1]);
+        resolve();
+        return;
+      }
+
+      const p0 = pts[idx];
+      const p1 = pts[idx+1];
+      const within = (target - acc) / (segLen[idx] || 1);
+
+      const lat = p0.lat + (p1.lat - p0.lat) * within;
+      const lng = p0.lng + (p1.lng - p0.lng) * within;
+      ambulanceMarker.setLatLng([lat,lng]);
+
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+/** ---------- Risk -> stay/cost model (仮) ---------- */
+/*
+  ここは仕様がまだ固定されていないので「仮モデル」を置きます。
+  - stayHours: 低リスクでも最低1時間、最大10時間
+  - costYen: 1時間あたり10,000円（例）
+  必要なら係数や段階テーブルに変更します。
+*/
+function calcStayAndCostFromRiskScore(riskScore){
+  const stayHours = Math.max(1, Math.min(10, Math.round(riskScore / 10)));
+  const costYen = stayHours * 10000;
+  return { stayHours, costYen };
+}
+
+/** ---------- Main simulation ---------- */
+async function startSimulation(){
+  if (simRunning) return;
+  simRunning = true;
+  setSimButtonEnabled(false);
+
+  simTotals = { stayHours: 0, costYen: 0 };
+  simLines = [];
+  addSimLine('開始');
+
+  await hospitalsReady; // 病院データ準備待ち
+
+  // 選択地点 = 地図中心（十字）
+  const target = map.getCenter();
+
+  // 最寄り病院
+  const r = HospitalLib.estimateTimeToNearestHospital(target.lat, target.lng);
+  if (!r?.hospital) throw new Error('最寄り病院が見つかりません');
+  const hosp = L.latLng(r.hospital.lat, r.hospital.lng);
+
+  addSimLine(`最寄り病院: ${r.hospital.name ?? '病院'} / 推定 ${Math.round(r.minutes)}分`);
+
+  // 両方が入るように縮小
+  const bounds = L.latLngBounds([hosp, target]).pad(0.25);
+  map.fitBounds(bounds);
+
+  // レイヤー初期化
+  simLayer.clearLayers();
+  routeLine = null;
+  ambulanceMarker = null;
+
+  // 病院マーカー（目印）
+  L.circleMarker(hosp, { radius: 7, weight: 2, fillOpacity: 0.6, pane:'markersPane' })
+    .addTo(simLayer)
+    .bindTooltip('病院', { permanent: false });
+
+  // 1) 病院 -> 選択地点
+  addSimLine('病院 → 選択地点 へ移動');
+  const route1 = await fetchRouteOSRM(hosp, target);
+  routeLine = L.polyline(route1, { weight: 4, opacity: 0.8, pane:'markersPane' }).addTo(simLayer);
+  await animateAlong(route1, 12); // 12秒で往路（任意）
+
+  // 2) 選択地点 -> 病院
+  addSimLine('選択地点 → 病院 へ搬送');
+  const route2 = await fetchRouteOSRM(target, hosp);
+  if (routeLine) simLayer.removeLayer(routeLine);
+  routeLine = L.polyline(route2, { weight: 4, opacity: 0.8, pane:'markersPane' }).addTo(simLayer);
+  await animateAlong(route2, 12); // 12秒で復路（任意）
+
+  // 病院到着：リスクに応じて入院/費用を引く
+  const riskScore = Number(document.getElementById('riskNum')?.textContent ?? '0') || 0;
+  const { stayHours, costYen } = calcStayAndCostFromRiskScore(riskScore);
+
+  simTotals.stayHours += stayHours;
+  simTotals.costYen += costYen;
+
+  addSimLine(`入院 : -${stayHours}時間（リスク ${riskScore}/100）`);
+  addSimLine(`費用 : -${yen(costYen)}円`);
+  addSimLine('終了');
+
+  renderSimLog();
+  setSimButtonEnabled(true);
+  simRunning = false;
+}
+
+
+
 
 // 京都府が最初に入る（ざっくり）
 map.fitBounds([[34.85, 134.85],[35.75, 136.10]]);
