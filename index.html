@@ -765,6 +765,21 @@ fetch("HospitalPlaceData.xlsx")
     }
 
     const routeGeoJSON = data.routes[0].geometry;
+    const route = data.routes[0];
+
+    const distanceKm = route.distance / 1000;  // km
+    const durationMin = route.duration / 60;   // 分
+
+    // 四捨五入
+    const roundedMin = Math.round(durationMin);
+
+    // サイドバー更新
+    const etaEl = document.getElementById("etaNum");
+    if (etaEl) etaEl.textContent = roundedMin;
+
+    // （必要なら距離も表示したい場合）
+    console.log("距離:", distanceKm.toFixed(2), "km");
+    console.log("所要時間:", roundedMin, "分");
 
     // ④ 既存ルート削除
     if (simulationRouteLayer) {
