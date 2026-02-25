@@ -181,17 +181,6 @@
       background: rgba(217,48,37,.08);
     }
 
-    .mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size:12px;
-      color:var(--muted);
-      white-space:pre-wrap;
-      background: #fbfcff;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px;
-    }
-
     .ok { color: #1b7f3a; }
     .warn { color: #8a5b00; }
 
@@ -223,21 +212,10 @@
 </header>
 
 <main>
-  <div class="card">
-    <h2>この画面の目的</h2>
-    <p class="hint">
-      熱中症リスク推定に使う情報を入力します．<br/>
-      <strong>動的データ</strong>（行動・水分）はその日の状況に合わせて更新し，
-      <strong>静的データ</strong>（年齢・体質など）は基本的に一度設定すればOKです．<br/>
-      データはこの端末の localStorage に保存されます（サーバ送信しません）．
-    </p>
-  </div>
-
   <form id="profileForm" class="card">
-    <h2>動的データ（行動・水分）<span class="badge">最初に入力</span></h2>
+    <h2>動的データ（行動・水分）<span class="badge">毎日更新</span></h2>
     <p class="hint">
-      ここはリスクスコア推定の主要入力です．（WBGTは地図側で取得）<br/>
-      <strong>行動＝METs</strong>，<strong>水分＝直近2時間mL（0〜600，600以上は600扱い）</strong>で保存します．
+      今日の状況に合わせて入力してください．
     </p>
 
     <div class="grid">
@@ -246,7 +224,6 @@
         <select id="met" name="met" required>
           <option value="" selected>選択してください</option>
         </select>
-        <p class="hint">数値入力は不可（選択のみ）．</p>
       </div>
 
       <div class="col-6">
@@ -254,7 +231,6 @@
         <select id="water_ml_last2h" name="water_ml_last2h" required>
           <option value="" selected>選択してください</option>
         </select>
-        <p class="hint">600mL以上は効果上限として扱う想定です（保存値は600）．</p>
       </div>
 
       <div class="col-6">
@@ -262,7 +238,7 @@
         <select id="outing_hours" name="outing_hours">
           <option value="" selected>未入力</option>
         </select>
-        <p class="hint">任意です（将来の拡張やログ用）．</p>
+        <p class="hint">任意です．</p>
       </div>
     </div>
 
@@ -270,7 +246,7 @@
 
     <h2>静的データ（基本固定）</h2>
     <p class="hint">
-      年齢はリスク推定に使います．それ以外は任意です．
+      年齢は必須です．それ以外は任意です．
     </p>
 
     <div class="grid">
@@ -298,7 +274,6 @@
             <span>滞在先でエアコンを使用できる</span>
           </label>
         </div>
-        <p class="hint">地図側の提案（避難行動）に利用できます．</p>
       </div>
     </div>
 
@@ -333,7 +308,7 @@
           <label class="pill"><input type="checkbox" name="cond" value="none" id="cond_none"/><span>特になし</span></label>
         </div>
         <p class="hint">
-          「特になし」をONの状態で別の持病を選ぶと，その持病をONにして「特になし」はOFFになります．
+          「特になし」をONの状態で別の持病を選ぶと，「特になし」はOFFになります．
         </p>
       </div>
 
@@ -387,11 +362,6 @@
     </div>
     <p id="status" class="hint"></p>
   </form>
-
-  <div class="card">
-    <h2>保存データ（デバッグ用）</h2>
-    <div id="jsonOut" class="mono">{}</div>
-  </div>
 </main>
 
 <script>
@@ -408,10 +378,6 @@
     const el = document.getElementById("status");
     el.textContent = msg;
     el.className = "hint " + (kind === "ok" ? "ok" : "warn");
-  }
-
-  function renderJSON(obj) {
-    document.getElementById("jsonOut").textContent = JSON.stringify(obj, null, 2);
   }
 
   function populateSelectRange(selectEl, start, end, step=1, formatter=null) {
@@ -431,13 +397,11 @@
     selectEl.appendChild(opt);
   }
 
-  // 行動（METs）を指定どおりに設定
   function setupDynamicChoices() {
     const metSel = document.getElementById("met");
     const waterSel = document.getElementById("water_ml_last2h");
     const outingSel = document.getElementById("outing_hours");
 
-    // METs（固定6択）
     metSel.querySelectorAll("option:not(:first-child)").forEach(o => o.remove());
     addOption(metSel, 1.2, "座って過ごす：1.2 METs");
     addOption(metSel, 2.5, "歩行：2.5 METs");
@@ -446,15 +410,13 @@
     addOption(metSel, 7.0, "自転車：7.0 METs");
     addOption(metSel, 8.0, "ランニング：8.0 METs");
 
-    // 水分（0〜600，100刻み＋600以上）
     waterSel.querySelectorAll("option:not(:first-child)").forEach(o => o.remove());
     const waters = [0,100,200,300,400,500,600];
     for (const ml of waters) {
-      if (ml === 600) addOption(waterSel, 600, "600以上（効果上限）");
+      if (ml === 600) addOption(waterSel, 600, "600以上");
       else addOption(waterSel, ml, `${ml} mL`);
     }
 
-    // 外出時間（任意）：0〜12時間（0.5刻み）
     outingSel.querySelectorAll("option:not(:first-child)").forEach(o => o.remove());
     for (let h = 0; h <= 12.0001; h += 0.5) {
       const hh = Math.round(h * 10) / 10;
@@ -542,10 +504,8 @@
         meds_affect_heat, pregnant, recent_illness, sleep_hours, alcohol_today, updated_at
       },
 
-      // 地図側が「直接読む」ためのトップレベル（重要）
       age, met, water_ml_last2h, outing_hours,
 
-      // 互換用（必要なら使う）
       sex, can_use_ac, height_cm, weight_kg, bmi, conditions,
       meds_affect_heat, pregnant, recent_illness, sleep_hours, alcohol_today,
 
@@ -564,12 +524,10 @@
     const waterSel = document.getElementById("water_ml_last2h");
     const outingSel = document.getElementById("outing_hours");
 
-    // met：6択に一致する場合のみ反映
     const allowedMet = new Set(["1.2","2.5","4","4.0","6","6.0","7","7.0","8","8.0"]);
     const metVal = (dyn && dyn.met != null) ? String(Number(dyn.met)) : "";
     metSel.value = allowedMet.has(metVal) ? metVal : "";
 
-    // water：0〜600，600超は600扱い，100刻みに丸め
     let wVal = (dyn && dyn.water_ml_last2h != null) ? Number(dyn.water_ml_last2h) : null;
     if (wVal != null) {
       wVal = Math.max(0, Math.min(600, wVal));
@@ -578,7 +536,6 @@
     }
     waterSel.value = (wVal != null) ? String(wVal) : "";
 
-    // outing：0.5刻みで丸め
     let oVal = (dyn && dyn.outing_hours != null) ? Number(dyn.outing_hours) : null;
     if (oVal != null) {
       oVal = Math.max(0, Math.min(12, oVal));
@@ -635,22 +592,19 @@
 
     const data = readForm();
     localStorage.setItem(KEY, JSON.stringify(data));
-    renderJSON(data);
     setStatus("保存しました．", "ok");
   });
 
   document.getElementById("loadBtn").addEventListener("click", () => {
     const raw = localStorage.getItem(KEY);
-    if (!raw) { setStatus("保存データがありません．", "warn"); renderJSON({}); return; }
+    if (!raw) { setStatus("保存データがありません．", "warn"); return; }
     const data = JSON.parse(raw);
-    renderJSON(data);
     applyToForm(data);
-    setStatus("保存データを読み込み，フォームに反映しました．", "ok");
+    setStatus("保存データを読み込みました．", "ok");
   });
 
   document.getElementById("clearBtn").addEventListener("click", () => {
     localStorage.removeItem(KEY);
-    renderJSON({});
     document.getElementById("profileForm").reset();
     document.getElementById("age").value = "";
     document.getElementById("met").value = "";
@@ -667,16 +621,12 @@
   if (initRaw) {
     try {
       const obj = JSON.parse(initRaw);
-      renderJSON(obj);
       applyToForm(obj);
     } catch (_) {
-      renderJSON({});
+      // 破損データは無視
     }
-  } else {
-    renderJSON({});
   }
 
-  // 「戻る」：履歴があれば戻る，なければindex.html
   document.getElementById("backLink").addEventListener("click", (e) => {
     if (window.history.length > 1) {
       e.preventDefault();
